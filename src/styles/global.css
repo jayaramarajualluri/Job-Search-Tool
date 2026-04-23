@@ -1,0 +1,46 @@
+:root {
+  --bg: #0f1115;
+  --panel: #151922;
+  --panel-2: #1b2130;
+  --border: #262d3d;
+  --text: #e6e9ef;
+  --text-dim: #9aa3b2;
+  --accent: #5aa9ff;
+  --good: #3ecf8e;
+  --warn: #e8b84b;
+  --bad: #ef6873;
+}
+
+* { box-sizing: border-box; }
+
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 14px;
+}
+
+.app-bootstrap {
+  padding: 24px;
+}
+
+a { color: var(--accent); }
+button {
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+button:hover { background: #222a3d; }
+input, select, textarea {
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 8px;
+}

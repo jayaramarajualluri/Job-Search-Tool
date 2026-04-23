@@ -1,0 +1,38 @@
+# Node
+node_modules/
+dist/
+dist-ssr/
+.vite/
+.eslintcache
+
+# Env / local
+.env
+.env.*
+!.env.example
+*.local
+
+# Rust / Tauri
+src-tauri/target/
+src-tauri/gen/schemas/
+src-tauri/WixTools/
+src-tauri/.cargo/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# App data (never commit the user's data)
+/app-data/
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+
+# Logs
+logs/
+*.log
