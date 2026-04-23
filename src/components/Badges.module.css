@@ -1,0 +1,27 @@
+.pill {
+  display: inline-block;
+  min-width: 36px;
+  text-align: center;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 12px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+}
+.chip {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 12px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  margin-right: 6px;
+  white-space: nowrap;
+}
+.good   { background: #173728; border-color: #245a3e; color: #8fe5b8; }
+.warn   { background: #3a3018; border-color: #5a4a28; color: #f1c678; }
+.bad    { background: #3a1c21; border-color: #5a2b33; color: #ef9aa2; }
+.neutral{ color: var(--text); }
+.dim    { color: var(--text-dim); }

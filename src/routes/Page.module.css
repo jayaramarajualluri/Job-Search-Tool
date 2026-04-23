@@ -1,0 +1,31 @@
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0 0 16px 0;
+  gap: 12px;
+}
+.header h1 {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0;
+}
+.actions {
+  display: flex;
+  gap: 8px;
+}
+.empty {
+  color: var(--text-dim);
+}
+.card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 12px;
+}
+.card h3 {
+  margin: 0 0 6px 0;
+  font-size: 14px;
+  font-weight: 600;
+}
