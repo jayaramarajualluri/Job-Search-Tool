@@ -1,0 +1,72 @@
+[
+  {
+    "companyName": "Acme Payments",
+    "sourceName": "greenhouse",
+    "sourceUrl": "https://boards.greenhouse.io/acmepayments/jobs/111",
+    "applyUrl": "https://boards.greenhouse.io/acmepayments/jobs/111",
+    "roleTitle": "Backend Engineer",
+    "jobExternalId": "gh-111",
+    "location": "Remote, United States",
+    "workMode": "remote",
+    "postedDate": "2026-04-23",
+    "jdText": "We are building large-scale payments infrastructure in Go and Python on AWS. You will design Kafka-backed event pipelines, Kubernetes workloads, and PostgreSQL data models. We will sponsor H-1B visas for qualified candidates.",
+    "requiredSkills": ["Go", "Python", "AWS", "Kafka", "Kubernetes", "PostgreSQL"],
+    "preferredSkills": ["Terraform"]
+  },
+  {
+    "companyName": "Cooper Defense Systems",
+    "sourceName": "employer_portal",
+    "sourceUrl": "https://careers.cooperdefense.example/jobs/9001",
+    "applyUrl": "https://careers.cooperdefense.example/jobs/9001",
+    "roleTitle": "Software Engineer",
+    "jobExternalId": "cds-9001",
+    "location": "Orlando, FL",
+    "workMode": "onsite",
+    "postedDate": "2026-04-22",
+    "jdText": "Software engineer on mission-critical embedded systems. Must be a US citizen. Active security clearance required.",
+    "requiredSkills": ["C++", "Linux"],
+    "preferredSkills": []
+  },
+  {
+    "companyName": "Bright ML",
+    "sourceName": "lever",
+    "sourceUrl": "https://jobs.lever.co/brightml/job-222",
+    "applyUrl": "https://jobs.lever.co/brightml/job-222",
+    "roleTitle": "Machine Learning Engineer",
+    "jobExternalId": "lever-222",
+    "location": "San Francisco, CA (Hybrid)",
+    "workMode": "hybrid",
+    "postedDate": "2026-04-20",
+    "jdText": "MLE on our recommender team. PyTorch, Ray, Kubernetes, MLflow. Open to sponsorship for exceptional candidates.",
+    "requiredSkills": ["PyTorch", "Python", "Kubernetes"],
+    "preferredSkills": ["Ray", "MLflow"]
+  },
+  {
+    "companyName": "Harbor Data",
+    "sourceName": "ashby",
+    "sourceUrl": "https://jobs.ashbyhq.com/harbordata/data-engineer",
+    "applyUrl": "https://jobs.ashbyhq.com/harbordata/data-engineer",
+    "roleTitle": "Data Engineer",
+    "jobExternalId": "ashby-data-eng",
+    "location": "New York, NY (Hybrid)",
+    "workMode": "hybrid",
+    "postedDate": "2026-04-17",
+    "jdText": "Data engineer to build Airflow + dbt pipelines on Snowflake. Spark experience a plus. Visa sponsorship considered.",
+    "requiredSkills": ["Airflow", "dbt", "SQL", "Spark"],
+    "preferredSkills": ["Snowflake"]
+  },
+  {
+    "companyName": "SunsetLabs",
+    "sourceName": "indeed",
+    "sourceUrl": "https://www.indeed.com/viewjob?jk=abc",
+    "applyUrl": "https://www.indeed.com/viewjob?jk=abc",
+    "roleTitle": "Platform Engineer",
+    "jobExternalId": null,
+    "location": "Miami, FL",
+    "workMode": "unknown",
+    "postedDate": "2026-04-10",
+    "jdText": "Platform engineer for our cloud foundations team. Kubernetes, Terraform, AWS, Go. No sponsorship available.",
+    "requiredSkills": ["Kubernetes", "Terraform", "AWS", "Go"],
+    "preferredSkills": []
+  }
+]

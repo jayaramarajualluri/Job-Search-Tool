@@ -7,6 +7,9 @@ pub mod recency;
 pub mod skills;
 pub mod sponsorship;
 
+#[cfg(test)]
+mod tests;
+
 use crate::domain::job::{Job, MatchExplanation, RecencyBucket, WorkMode};
 use crate::domain::settings::{AppSettings, RemotePreference};
 

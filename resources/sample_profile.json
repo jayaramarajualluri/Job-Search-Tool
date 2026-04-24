@@ -1,0 +1,85 @@
+{
+  "name": "Alex STEM",
+  "headline": "Backend / Platform / ML Engineer",
+  "contact": {
+    "email": "alex@example.com",
+    "phone": "+1-555-0100",
+    "location": "Orlando, FL (open to Remote-US / CA / FL)",
+    "website": null,
+    "linkedin": "linkedin.com/in/alexstem",
+    "github": "github.com/alexstem"
+  },
+  "summary": "Backend and platform engineer with distributed-systems experience; shipped Kafka-backed event pipelines, Kubernetes workloads, and ML inference services on AWS and GCP.",
+  "skills": [
+    { "category": "Languages", "skills": ["Python", "Go", "TypeScript", "Rust", "SQL"] },
+    { "category": "Cloud", "skills": ["AWS", "GCP", "Kubernetes", "Terraform", "Docker"] },
+    { "category": "Data", "skills": ["Kafka", "Spark", "Airflow", "dbt", "PostgreSQL", "Redis"] },
+    { "category": "ML", "skills": ["PyTorch", "scikit-learn", "MLflow", "Ray"] }
+  ],
+  "experience": [
+    {
+      "company": "Acme Analytics",
+      "title": "Backend Engineer",
+      "location": "Remote",
+      "startDate": "2023-07",
+      "endDate": null,
+      "bullets": [
+        "Designed a Kafka-backed event pipeline processing 1.2B events/day, cutting p99 ingestion latency 38%.",
+        "Migrated batch jobs to Kubernetes on GKE; introduced HPA + cost-aware node pools, cutting monthly compute 22%.",
+        "Built a Go microservice for feature-flag evaluation used across 6 teams; p99 < 8 ms.",
+        "Instrumented the ML training orchestrator with MLflow + structured logging; reduced pipeline debugging time for the data-science team."
+      ],
+      "bulletTags": [
+        ["kafka", "python", "aws"],
+        ["kubernetes", "gcp", "terraform"],
+        ["go", "platform"],
+        ["mlflow", "python", "observability"]
+      ]
+    },
+    {
+      "company": "Orbit Labs",
+      "title": "Software Engineer Intern",
+      "location": "Mountain View, CA",
+      "startDate": "2022-05",
+      "endDate": "2022-08",
+      "bullets": [
+        "Prototyped a PyTorch model-serving gateway on Ray Serve handling variable-size text inputs.",
+        "Authored Terraform modules for staging account provisioning; reduced setup time for new services from days to under an hour."
+      ],
+      "bulletTags": [
+        ["pytorch", "ray", "python"],
+        ["terraform", "aws"]
+      ]
+    }
+  ],
+  "projects": [
+    {
+      "name": "tinydb-rs",
+      "link": "github.com/alexstem/tinydb-rs",
+      "bullets": [
+        "Rust key-value store with a write-ahead log and simple MVCC snapshot isolation."
+      ],
+      "bulletTags": [["rust", "databases"]]
+    },
+    {
+      "name": "flights-mlops",
+      "link": "github.com/alexstem/flights-mlops",
+      "bullets": [
+        "End-to-end MLOps pipeline (Airflow + MLflow + FastAPI) for flight-delay regression; retraining on schedule."
+      ],
+      "bulletTags": [["airflow", "mlflow", "fastapi", "python", "mlops"]]
+    }
+  ],
+  "education": [
+    {
+      "institution": "University of Central Florida",
+      "degree": "MS",
+      "field": "Computer Science",
+      "startDate": "2021-08",
+      "endDate": "2023-05",
+      "gpa": "3.90",
+      "highlights": []
+    }
+  ],
+  "certifications": []
+}
