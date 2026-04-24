@@ -43,7 +43,8 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
-            let data_dir = config::app_data_dir(app.handle())?;
+            let handle = app.handle().clone();
+            let data_dir = config::app_data_dir(&handle)?;
             let db = db::Database::open(&data_dir)?;
             db.migrate()?;
             app.manage(db);

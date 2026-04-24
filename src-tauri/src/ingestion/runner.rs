@@ -47,7 +47,7 @@ pub async fn run(db: &Database, settings: &AppSettings, sources: &[Source]) -> A
                 total_fetched += entry.fetched;
                 for ingest in list {
                     match persist_one(db, settings, ingest).await {
-                        Ok(PersistOutcome::Prepared) => {
+                        Ok(PersistOutcome::Prepared(_)) => {
                             entry.prepared += 1;
                             total_prepared += 1;
                             entry.filtered += 1;
@@ -85,25 +85,21 @@ pub async fn run(db: &Database, settings: &AppSettings, sources: &[Source]) -> A
 
 /// Run ingestion for a single manually-supplied `JobIngest` (URL or text
 /// import path).  Reuses the same normalize → persist → file path.
+/// Returns the new job id on success, or `-1` if the input was filtered out
+/// by the recency window or by the explicit-no-sponsorship rule.
 pub async fn ingest_one(
     db: &Database,
     settings: &AppSettings,
     ingest: JobIngest,
 ) -> AppResult<i64> {
     match persist_one(db, settings, ingest).await? {
-        PersistOutcome::Prepared => {
-            // Fetch the newest job id we just wrote — list() is already
-            // score-desc, so the row we just updated is easily findable.
-            // Callers that need the id can query separately; here we return 0
-            // as a sentinel, or extend persist_one to return the id.
-            Ok(0)
-        }
+        PersistOutcome::Prepared(id) => Ok(id),
         PersistOutcome::FilteredOut => Ok(-1),
     }
 }
 
 enum PersistOutcome {
-    Prepared,
+    Prepared(i64),
     FilteredOut,
 }
 
@@ -225,13 +221,14 @@ async fn persist_one(
             if company.company_folder_path.is_none() {
                 // Derive the per-company folder (one level above role).
                 if let Some(parent) = std::path::Path::new(&paths.role_folder).parent() {
-                    repo::companies::set_folder_path(&c, company.id, &parent.to_string_lossy())?;
+                    let parent_str = parent.to_string_lossy().into_owned();
+                    repo::companies::set_folder_path(&c, company.id, &parent_str)?;
                 }
             }
         }
     }
 
-    Ok(PersistOutcome::Prepared)
+    Ok(PersistOutcome::Prepared(job_id))
 }
 
 fn summarize(jd: Option<&str>) -> Option<String> {

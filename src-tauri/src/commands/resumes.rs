@@ -132,10 +132,18 @@ pub fn tailor_resume_for_job(
 
     // Write the HTML resume into the role folder.
     let Some(role_folder) = job.role_folder_path.as_deref() else {
-        return Err(AppError::invalid("job has no role_folder_path; run ingestion first"));
+        return Err(AppError::invalid(
+            "job has no role_folder_path; run ingestion first",
+        ));
     };
     let out_path = PathBuf::from(role_folder).join("tailored_resume.html");
     renderer::render_html_to(&tailored, &out_path)?;
+
+    // Bind owned strings so their references outlive the query calls below.
+    let out_path_str = out_path.to_string_lossy().into_owned();
+    let source_profile_path = settings.resume_source_inputs.canonical_profile_path.clone();
+    let jd_file_path = job.jd_file_path.clone().unwrap_or_default();
+    let cover_letter_path = job.cover_letter_file_path.clone();
 
     // Persist resume row + update job.resume_file_path.
     {
@@ -145,8 +153,8 @@ pub fn tailor_resume_for_job(
             job_id,
             "master",
             &tailored.variant_name,
-            settings.resume_source_inputs.canonical_profile_path.as_deref(),
-            Some(&out_path.to_string_lossy()),
+            source_profile_path.as_deref(),
+            Some(&out_path_str),
             strategy,
             similarity_score,
         )?;
@@ -154,10 +162,10 @@ pub fn tailor_resume_for_job(
             &c,
             job_id,
             role_folder,
-            job.jd_file_path.as_deref().unwrap_or(""),
-            Some(&out_path.to_string_lossy()),
-            job.cover_letter_file_path.as_deref(),
+            &jd_file_path,
+            Some(&out_path_str),
+            cover_letter_path.as_deref(),
         )?;
     }
-    Ok(out_path.to_string_lossy().into_owned())
+    Ok(out_path_str)
 }

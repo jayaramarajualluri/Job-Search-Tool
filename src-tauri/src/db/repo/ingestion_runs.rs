@@ -37,7 +37,14 @@ pub fn finish(
             total_fetched = ?2, total_filtered = ?3, total_prepared = ?4,
             notes = ?5
          WHERE id = ?6",
-        params![json, totals.0, totals.1, totals.2, notes, id],
+        params![
+            json,
+            totals.0 as i64,
+            totals.1 as i64,
+            totals.2 as i64,
+            notes,
+            id,
+        ],
     )?;
     Ok(())
 }

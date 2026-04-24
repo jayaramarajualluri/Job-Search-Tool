@@ -193,24 +193,33 @@ pub struct ListFilter {
 pub fn list_filtered(c: &DbConn, f: &ListFilter) -> AppResult<Vec<Job>> {
     let mut sql = String::from(SELECT_BASE);
     sql.push_str(" WHERE 1=1");
-    if f.min_score.is_some() {
-        sql.push_str(" AND match_score >= :min_score");
+    let mut binds: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
+
+    if let Some(ms) = f.min_score {
+        sql.push_str(" AND match_score >= ?");
+        binds.push(Box::new(ms as f64));
     }
-    if f.status.is_some() {
-        sql.push_str(" AND status = :status");
+    if let Some(st) = f.status {
+        sql.push_str(" AND status = ?");
+        binds.push(Box::new(status_str(st).to_string()));
     }
     if let Some(list) = &f.recency {
         if !list.is_empty() {
             sql.push_str(" AND recency_bucket IN (");
-            for (i, _) in list.iter().enumerate() {
-                if i > 0 { sql.push(','); }
-                sql.push_str(&format!(":r{}", i));
+            for (i, b) in list.iter().enumerate() {
+                if i > 0 {
+                    sql.push(',');
+                }
+                sql.push('?');
+                let s = recency_str(Some(*b)).unwrap_or("today").to_string();
+                binds.push(Box::new(s));
             }
             sql.push(')');
         }
     }
-    if f.company_id.is_some() {
-        sql.push_str(" AND company_id = :company_id");
+    if let Some(cid) = f.company_id {
+        sql.push_str(" AND company_id = ?");
+        binds.push(Box::new(cid));
     }
     if !f.include_explicit_no_sponsorship {
         sql.push_str(" AND sponsorship_confidence <> 'explicit_no_sponsorship'");
@@ -218,25 +227,8 @@ pub fn list_filtered(c: &DbConn, f: &ListFilter) -> AppResult<Vec<Job>> {
     sql.push_str(" ORDER BY match_score DESC, posted_date DESC");
 
     let mut stmt = c.prepare(&sql)?;
-    let mut binds: Vec<(String, Box<dyn rusqlite::ToSql>)> = Vec::new();
-    if let Some(ms) = f.min_score {
-        binds.push((":min_score".into(), Box::new(ms as f64)));
-    }
-    if let Some(st) = f.status {
-        binds.push((":status".into(), Box::new(status_str(st).to_string())));
-    }
-    if let Some(list) = &f.recency {
-        for (i, b) in list.iter().enumerate() {
-            binds.push((format!(":r{}", i), Box::new(recency_str(Some(*b)).unwrap().to_string())));
-        }
-    }
-    if let Some(cid) = f.company_id {
-        binds.push((":company_id".into(), Box::new(cid)));
-    }
-
-    let refs: Vec<(&str, &dyn rusqlite::ToSql)> =
-        binds.iter().map(|(k, v)| (k.as_str(), v.as_ref())).collect();
-    let rows = stmt.query_map(&refs[..], map_row)?;
+    let refs: Vec<&dyn rusqlite::ToSql> = binds.iter().map(|b| b.as_ref()).collect();
+    let rows = stmt.query_map(rusqlite::params_from_iter(refs.iter()), map_row)?;
     Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
 }
 

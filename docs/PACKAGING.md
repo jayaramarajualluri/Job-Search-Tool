@@ -1,5 +1,19 @@
 # Packaging
 
+## Prerequisite: app icons
+
+`tauri build` needs the icon files referenced in `src-tauri/tauri.conf.json`
+(`32x32.png`, `128x128.png`, `128x128@2x.png`, `icon.icns`, `icon.ico`).
+`tauri dev` does NOT require them.
+
+Generate placeholders from any square PNG:
+
+```bash
+npm run tauri -- icon path/to/source-icon.png
+```
+
+This writes all required sizes/formats into `src-tauri/icons/`.
+
 ## Windows (.msi)
 
 From a developer PowerShell / CMD:
