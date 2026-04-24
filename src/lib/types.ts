@@ -236,6 +236,12 @@ export interface ResumeSourceInputs {
   pdfPath: string | null;
 }
 
+export interface BoardSlugs {
+  greenhouse: string[];
+  lever: string[];
+  ashby: string[];
+}
+
 export interface AppSettings {
   rootFolder: string;
   preferredRoles: string[];
@@ -252,6 +258,7 @@ export interface AppSettings {
   folderNamingFormat: string;
   resumeSourceInputs: ResumeSourceInputs;
   linkedinDiscoveryEnabled: boolean;
+  boardSlugs: BoardSlugs;
 }
 
 export interface SourceOutcome {

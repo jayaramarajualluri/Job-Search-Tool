@@ -5,7 +5,7 @@
 //!   error        — unified `AppError` returned across the IPC boundary
 //!   db           — SQLite pool + migrations + per-entity repositories
 //!   domain       — strongly-typed business entities (Job, Company, …)
-//!   ingestion    — source connectors (Greenhouse, Lever, Ashby, manual, LI)
+//!   ingestion    — source connectors + normalizer + runner
 //!   ranking      — scoring engine (recency, location, sponsorship, skills)
 //!   resume       — canonical profile + tailoring + rendering
 //!   files        — cross-platform folder/file organizer
@@ -17,7 +17,6 @@ pub mod db;
 pub mod domain;
 pub mod error;
 
-// The following modules are filled in during later stages.
 pub mod files;
 pub mod ingestion;
 pub mod ranking;
@@ -30,7 +29,7 @@ use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 
 /// Initialize the Tauri application. Called from `main.rs`.
 pub fn run() {
-    // Logging: default INFO, respect RUST_LOG if set. Secret fields are
+    // Logging: default INFO, respect RUST_LOG if set.  Secret fields are
     // redacted at the call site — we never log tokens/passwords as-is.
     let filter = EnvFilter::try_from_default_env()
         .unwrap_or_else(|_| EnvFilter::new("info,job_search_tool_lib=debug"));
@@ -44,8 +43,6 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
-            // Resolve/create the app data directory and open the DB. Failing
-            // here is fatal — the app has nothing to show without a DB.
             let data_dir = config::app_data_dir(app.handle())?;
             let db = db::Database::open(&data_dir)?;
             db.migrate()?;
@@ -53,8 +50,47 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            // Misc
             commands::ping,
-            // Stage 6 wires the full command surface.
+
+            // Jobs
+            commands::jobs::list_jobs,
+            commands::jobs::get_job,
+            commands::jobs::update_job_status,
+
+            // Companies
+            commands::companies::list_companies,
+
+            // Accounts
+            commands::accounts::list_accounts,
+            commands::accounts::create_account,
+            commands::accounts::update_account,
+            commands::accounts::save_account_password,
+            commands::accounts::clear_account_password,
+            commands::accounts::reveal_account_password,
+            commands::accounts::mark_account_used,
+            commands::accounts::delete_account,
+
+            // Settings
+            commands::settings::load_settings,
+            commands::settings::save_settings,
+
+            // Ingestion
+            commands::ingestion::run_ingestion,
+            commands::ingestion::import_url,
+            commands::ingestion::import_text,
+            commands::ingestion::resolve_linkedin_url,
+            commands::ingestion::list_runs,
+
+            // Resumes
+            commands::resumes::load_canonical_profile,
+            commands::resumes::save_canonical_profile,
+            commands::resumes::list_resumes_for_job,
+            commands::resumes::tailor_resume_for_job,
+
+            // Files
+            commands::files::open_path,
+            commands::files::open_url,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

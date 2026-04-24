@@ -56,6 +56,20 @@ pub struct AppSettings {
 
     /// Whether the LinkedIn discovery-only flow is enabled.
     pub linkedin_discovery_enabled: bool,
+
+    /// Board slugs to poll during scheduled ingestion, grouped by ATS.
+    pub board_slugs: BoardSlugs,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct BoardSlugs {
+    #[serde(default)]
+    pub greenhouse: Vec<String>,
+    #[serde(default)]
+    pub lever: Vec<String>,
+    #[serde(default)]
+    pub ashby: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -135,6 +149,7 @@ impl Default for AppSettings {
             folder_naming_format: "{jobId|role}_{slug}".into(),
             resume_source_inputs: ResumeSourceInputs::default(),
             linkedin_discovery_enabled: true,
+            board_slugs: BoardSlugs::default(),
         }
     }
 }

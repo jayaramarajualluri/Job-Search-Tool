@@ -19,6 +19,7 @@ pub mod lever;
 pub mod linkedin_discovery;
 pub mod manual;
 pub mod normalize;
+pub mod runner;
 
 /// A configured source + its board slug (for ATS boards) or a free-form
 /// config (for manual/discovery paths).
