@@ -4,55 +4,126 @@
 <meta charset="utf-8" />
 <title>{{name}} — Resume</title>
 <style>
-  @page { size: letter; margin: 0.55in; }
+  /* Mirrors Resume.cls: 10.5pt Helvetica, letterpaper,
+     0.35in left/right + 0.2in top/bottom margins, uppercase section
+     titles with horizontal rule, tight bullet spacing. */
+  @page { size: letter; margin: 0.2in 0.35in; }
   * { box-sizing: border-box; }
-  html, body { margin: 0; padding: 0; color: #111; font-family: "Helvetica Neue", Arial, sans-serif; font-size: 10.5pt; line-height: 1.25; }
-  h1 { font-size: 18pt; margin: 0 0 2pt 0; letter-spacing: .2pt; }
-  h2 { font-size: 11pt; margin: 10pt 0 4pt 0; text-transform: uppercase; letter-spacing: 1pt; border-bottom: 1px solid #222; padding-bottom: 1pt; }
-  h3 { font-size: 10.5pt; margin: 4pt 0 0 0; }
-  .headline { color: #444; margin-bottom: 2pt; }
-  .contact { color: #444; font-size: 9.5pt; }
-  .contact span:not(:last-child)::after { content: " • "; color: #aaa; }
-  ul { margin: 2pt 0 4pt 16pt; padding: 0; }
-  li { margin-bottom: 1pt; }
-  .role-line { display: flex; justify-content: space-between; font-weight: 600; }
-  .role-line .dates { font-weight: 400; color: #555; }
-  .skills-row { margin-bottom: 2pt; }
-  .skills-row b { color: #111; }
-  .projects li { list-style: square; }
+  html, body {
+    margin: 0; padding: 0;
+    color: #000;
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-size: 10.5pt;
+    line-height: 1.22;
+  }
+  a { color: #1155cc; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  h1.name {
+    font-size: 18pt;
+    font-weight: 700;
+    text-align: center;
+    margin: 0 0 2pt 0;
+    letter-spacing: 0.3pt;
+  }
+  .headline {
+    text-align: center;
+    color: #444;
+    font-size: 10.5pt;
+    margin: 0 0 2pt 0;
+  }
+  .contact {
+    text-align: center;
+    margin: 0 0 8pt 0;
+    font-size: 10.5pt;
+  }
+  .contact .sep {
+    font-weight: 700;
+    margin: 0 5pt;
+    color: #000;
+  }
+
+  h2.section {
+    font-size: 10.5pt;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6pt;
+    margin: 8pt 0 2pt 0;
+    padding-bottom: 1pt;
+    border-bottom: 0.5pt solid #000;
+  }
+
+  .role-line {
+    display: flex;
+    justify-content: space-between;
+    gap: 8pt;
+    margin-top: 2pt;
+  }
+  .role-line .left { font-weight: 700; }
+  .role-line .right { font-style: italic; white-space: nowrap; }
+
+  ul {
+    margin: 2pt 0 4pt 0;
+    padding-left: 1.1em;
+  }
+  ul li { margin: 1pt 0; }
+
+  .skill-row { margin-bottom: 1pt; }
+  .skill-row .cat { font-weight: 700; }
+
+  .project-line { margin-top: 2pt; }
+  .project-line .name { font-weight: 700; }
+  .project-line .tools { font-style: italic; color: #333; }
+  .project-line .duration { font-style: italic; float: right; }
+
+  .cert-list {
+    margin: 2pt 0 0 1.1em;
+    padding: 0;
+  }
+  .cert-list .sep { font-weight: 700; margin: 0 4pt; }
+
+  .education-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 8pt;
+  }
+  .education-row .right { white-space: nowrap; color: #333; }
 </style>
 </head>
 <body>
-  <h1>{{name}}</h1>
+
+  <h1 class="name">{{name}}</h1>
   {{#if headline}}<div class="headline">{{headline}}</div>{{/if}}
+
   <div class="contact">
-    {{#if contact.email}}<span>{{contact.email}}</span>{{/if}}
     {{#if contact.phone}}<span>{{contact.phone}}</span>{{/if}}
-    {{#if contact.location}}<span>{{contact.location}}</span>{{/if}}
-    {{#if contact.website}}<span>{{contact.website}}</span>{{/if}}
-    {{#if contact.linkedin}}<span>{{contact.linkedin}}</span>{{/if}}
-    {{#if contact.github}}<span>{{contact.github}}</span>{{/if}}
+    {{#if contact.email}}{{#if contact.phone}}<span class="sep">•</span>{{/if}}<a href="mailto:{{contact.email}}">{{contact.email}}</a>{{/if}}
+    {{#if contact.linkedin}}<span class="sep">•</span><a href="https://{{contact.linkedin}}">{{contact.linkedin}}</a>{{/if}}
+    {{#if contact.portfolio}}<span class="sep">•</span><a href="https://{{contact.portfolio}}">Portfolio</a>{{/if}}
+    {{#if contact.tableau}}<span class="sep">•</span><a href="https://{{contact.tableau}}">Tableau</a>{{/if}}
+    {{#if contact.github}}<span class="sep">•</span><a href="https://{{contact.github}}">{{contact.github}}</a>{{/if}}
+    {{#if contact.website}}<span class="sep">•</span><a href="https://{{contact.website}}">{{contact.website}}</a>{{/if}}
   </div>
 
   {{#if summary}}
-    <h2>Summary</h2>
+    <h2 class="section">Summary</h2>
     <div>{{summary}}</div>
   {{/if}}
 
   {{#if skills}}
-    <h2>Skills</h2>
+    <h2 class="section">Technical Skills</h2>
     {{#each skills}}
-      <div class="skills-row"><b>{{category}}:</b> {{#each skills}}{{this}}{{#unless @last}}, {{/unless}}{{/each}}</div>
+      <div class="skill-row"><span class="cat">{{category}}:</span> {{#each skills}}{{this}}{{#unless @last}}, {{/unless}}{{/each}}</div>
     {{/each}}
   {{/if}}
 
   {{#if experience}}
-    <h2>Experience</h2>
+    <h2 class="section">Professional Experience</h2>
     {{#each experience}}
       <div>
         <div class="role-line">
-          <span>{{company}} — {{title}}{{#if location}}, {{location}}{{/if}}</span>
-          <span class="dates">{{start_date}} – {{#if end_date}}{{end_date}}{{else}}Present{{/if}}</span>
+          <span class="left">{{title}}, {{company}}{{#if location}} – {{location}}{{/if}}</span>
+          <span class="right">{{start_date}} – {{#if end_date}}{{end_date}}{{else}}Present{{/if}}</span>
         </div>
         {{#if bullets}}
           <ul>
@@ -64,38 +135,40 @@
   {{/if}}
 
   {{#if projects}}
-    <h2>Projects</h2>
-    <ul class="projects">
-      {{#each projects}}
-        <li>
-          <b>{{name}}</b>{{#if link}} — <span>{{link}}</span>{{/if}}
-          {{#if bullets}}
-            <ul>{{#each bullets}}<li>{{this}}</li>{{/each}}</ul>
-          {{/if}}
-        </li>
-      {{/each}}
-    </ul>
+    <h2 class="section">Projects</h2>
+    {{#each projects}}
+      <div class="project-line">
+        {{#if link}}<a href="https://{{link}}" class="name">{{name}}</a>{{else}}<span class="name">{{name}}</span>{{/if}}
+        {{#if tools}} <span class="tools">({{tools}})</span>{{/if}}
+      </div>
+      {{#if bullets}}
+        <ul>
+          {{#each bullets}}<li>{{this}}</li>{{/each}}
+        </ul>
+      {{/if}}
+    {{/each}}
   {{/if}}
 
   {{#if education}}
-    <h2>Education</h2>
+    <h2 class="section">Education</h2>
     {{#each education}}
-      <div>
-        <div class="role-line">
-          <span>{{institution}} — {{degree}}{{#if field}}, {{field}}{{/if}}</span>
-          <span class="dates">{{#if start_date}}{{start_date}} – {{/if}}{{end_date}}</span>
-        </div>
+      <div class="education-row">
+        <span><strong>{{degree}}{{#if field}}, {{field}}{{/if}}</strong></span>
+        <span class="right">{{end_date}}</span>
+      </div>
+      <div class="education-row">
+        <span>{{institution}}</span>
+        {{#if gpa}}<span class="right">GPA: {{gpa}}</span>{{/if}}
       </div>
     {{/each}}
   {{/if}}
 
   {{#if certifications}}
-    <h2>Certifications</h2>
-    <ul>
-      {{#each certifications}}
-        <li>{{name}}{{#if issuer}} — {{issuer}}{{/if}}{{#if date}} ({{date}}){{/if}}</li>
-      {{/each}}
-    </ul>
+    <h2 class="section">Certifications</h2>
+    <div>
+      {{#each certifications}}{{name}}{{#if issuer}}{{/if}}{{#unless @last}}<span class="sep">•</span>{{/unless}}{{/each}}
+    </div>
   {{/if}}
+
 </body>
 </html>
