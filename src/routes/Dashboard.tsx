@@ -1,60 +1,72 @@
-import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as ipc from "@/lib/ipc";
-import type { Job, JobStatus, RecencyBucket } from "@/lib/types";
+import type { Job, JobStatus, RecencyBucket, WorkMode } from "@/lib/types";
 import {
-  LocationBadge,
-  RecencyBadge,
   ScorePill,
   SponsorshipBadge,
   StatusBadge,
   WorkModeBadge,
 } from "@/components/Badges";
+import StatCard from "@/components/StatCard";
+import { ChipGroup } from "@/components/FilterChips";
+import JobDetailPanel from "@/components/JobDetailPanel";
 import page from "./Page.module.css";
 import styles from "./Dashboard.module.css";
 
-const BUCKET_ORDER: RecencyBucket[] = [
-  "today",
-  "yesterday",
-  "week",
-  "two_weeks",
-  "month",
-  "older",
+type RecencyChip = "today" | "week" | "two_weeks" | "month" | "all";
+type LocationChip = "remote" | "ca" | "fl" | "ny";
+type ModeChip = WorkMode;
+
+const RECENCY_OPTS: { value: RecencyChip; label: string }[] = [
+  { value: "today", label: "Today" },
+  { value: "week", label: "Last 7d" },
+  { value: "two_weeks", label: "Last 14d" },
+  { value: "month", label: "Last 28d" },
+  { value: "all", label: "All" },
 ];
-const BUCKET_LABEL: Record<RecencyBucket | "unknown", string> = {
-  today: "Today",
-  yesterday: "Yesterday",
-  week: "Last 7 days",
-  two_weeks: "Last 14 days",
-  month: "Last 28 days",
-  older: "Older",
-  unknown: "No date",
+const LOCATION_OPTS: { value: LocationChip; label: string }[] = [
+  { value: "remote", label: "Remote-US" },
+  { value: "ca", label: "California" },
+  { value: "fl", label: "Florida" },
+  { value: "ny", label: "New York" },
+];
+const MODE_OPTS: { value: ModeChip; label: string }[] = [
+  { value: "remote", label: "Remote" },
+  { value: "hybrid", label: "Hybrid" },
+  { value: "onsite", label: "On-site" },
+];
+
+const recencyToBuckets = (r: RecencyChip): RecencyBucket[] | null => {
+  if (r === "all") return null;
+  if (r === "today") return ["today", "yesterday"];
+  if (r === "week") return ["today", "yesterday", "week"];
+  if (r === "two_weeks") return ["today", "yesterday", "week", "two_weeks"];
+  return ["today", "yesterday", "week", "two_weeks", "month"];
 };
 
 export default function Dashboard() {
   const qc = useQueryClient();
 
-  const [minScore, setMinScore] = useState<number>(0);
+  const [recency, setRecency] = useState<RecencyChip[]>(["week"]);
+  const [locations, setLocations] = useState<LocationChip[]>([]);
+  const [modes, setModes] = useState<ModeChip[]>([]);
+  const [minScore, setMinScore] = useState(0);
   const [statusFilter, setStatusFilter] = useState<JobStatus | "">("");
-  const [maxDays, setMaxDays] = useState<number>(7);
+  const [selectedId, setSelectedId] = useState<number | null>(null);
 
-  const recency: RecencyBucket[] | undefined = useMemo(() => {
-    if (maxDays <= 2) return ["today", "yesterday"];
-    if (maxDays <= 7) return ["today", "yesterday", "week"];
-    if (maxDays <= 14) return ["today", "yesterday", "week", "two_weeks"];
-    if (maxDays <= 28)
-      return ["today", "yesterday", "week", "two_weeks", "month"];
-    return undefined; // all buckets
-  }, [maxDays]);
+  const recencyBuckets = useMemo(
+    () => recencyToBuckets(recency[0] ?? "week"),
+    [recency],
+  );
 
   const jobs = useQuery({
-    queryKey: ["jobs", { minScore, statusFilter, recency }],
+    queryKey: ["jobs", { minScore, statusFilter, recencyBuckets }],
     queryFn: () =>
       ipc.listJobs({
         minScore: minScore > 0 ? minScore : null,
         status: statusFilter || null,
-        recency: recency ?? null,
+        recency: recencyBuckets,
       }),
   });
 
@@ -68,58 +80,90 @@ export default function Dashboard() {
     return (id: number) => m.get(id) ?? `#${id}`;
   }, [companies.data]);
 
+  const settings = useQuery({
+    queryKey: ["settings"],
+    queryFn: () => ipc.loadSettings(),
+  });
+
   const runIngestion = useMutation({
     mutationFn: async () => {
-      const settings = await ipc.loadSettings();
+      const s = await ipc.loadSettings();
       const specs: ipc.SourceSpec[] = [
-        ...settings.boardSlugs.greenhouse.map((slug) => ({
-          kind: "greenhouse" as const,
-          slug,
-        })),
-        ...settings.boardSlugs.lever.map((slug) => ({
-          kind: "lever" as const,
-          slug,
-        })),
-        ...settings.boardSlugs.ashby.map((slug) => ({
-          kind: "ashby" as const,
-          slug,
-        })),
+        ...s.boardSlugs.greenhouse.map((slug) => ({ kind: "greenhouse" as const, slug })),
+        ...s.boardSlugs.lever.map((slug) => ({ kind: "lever" as const, slug })),
+        ...s.boardSlugs.ashby.map((slug) => ({ kind: "ashby" as const, slug })),
       ];
       if (specs.length === 0) {
-        throw new Error(
-          "No board slugs configured. Add some in Settings → Board slugs.",
-        );
+        throw new Error("No board slugs configured. Settings → Board slugs.");
       }
       return ipc.runIngestion(specs);
     },
     onSettled: () => qc.invalidateQueries({ queryKey: ["jobs"] }),
   });
 
-  const grouped = useMemo(() => {
-    const g: Record<string, Job[]> = {};
-    for (const j of jobs.data ?? []) {
-      const key = j.recencyBucket ?? "unknown";
-      (g[key] ??= []).push(j);
+  const autoMin = settings.data?.autoIngestionIntervalMinutes ?? null;
+  useEffect(() => {
+    if (!autoMin || autoMin <= 0) return;
+    const id = setInterval(() => {
+      if (!runIngestion.isPending) runIngestion.mutate();
+    }, autoMin * 60 * 1000);
+    return () => clearInterval(id);
+  }, [autoMin, runIngestion]);
+
+  const visibleRows = useMemo(() => {
+    let rows = jobs.data ?? [];
+    if (modes.length > 0) rows = rows.filter((j) => modes.includes(j.workMode));
+    if (locations.length > 0) {
+      rows = rows.filter((j) => {
+        const loc = (j.location ?? "").toLowerCase();
+        const st = j.stateOrRegion ?? "";
+        return locations.some((sel) => {
+          if (sel === "remote") return j.workMode === "remote";
+          if (sel === "ca") return st === "CA" || loc.includes("california");
+          if (sel === "fl") return st === "FL" || loc.includes("florida");
+          if (sel === "ny") return st === "NY" || loc.includes("new york");
+          return false;
+        });
+      });
     }
-    return g;
+    return rows;
+  }, [jobs.data, modes, locations]);
+
+  const stats = useMemo(() => {
+    const all = jobs.data ?? [];
+    const newJobs = all.filter((j) => j.status === "new").length;
+    const goodMatch = all.filter((j) => (j.matchScore ?? 0) >= 70).length;
+    const sponsorLikely = all.filter(
+      (j) =>
+        j.sponsorshipConfidence === "explicit_sponsor" ||
+        j.sponsorshipConfidence === "sponsor_likely",
+    ).length;
+    const ready = all.filter(
+      (j) => j.status === "ready_to_apply" || j.status === "resume_prepared",
+    ).length;
+    return { newJobs, goodMatch, sponsorLikely, ready };
   }, [jobs.data]);
 
+  const selectedJob =
+    selectedId != null ? (jobs.data ?? []).find((j) => j.id === selectedId) ?? null : null;
+
   return (
-    <div>
+    <div className={styles.shell}>
       <header className={page.header}>
         <h1>Dashboard</h1>
         <div className={page.actions}>
-          {runIngestion.isPending && <span>Running…</span>}
-          {runIngestion.isError && (
-            <span className={styles.err}>
-              {(runIngestion.error as Error).message}
-            </span>
-          )}
+          {autoMin ? (
+            <span className={styles.autoBadge}>Auto-ingest every {autoMin}m</span>
+          ) : null}
+          {runIngestion.isPending && <span className={styles.dim}>Running…</span>}
           {runIngestion.data && (
-            <span>
+            <span className={styles.dim}>
               Prepared {runIngestion.data.totalPrepared} / fetched{" "}
               {runIngestion.data.totalFetched}
             </span>
+          )}
+          {runIngestion.isError && (
+            <span className={styles.err}>{(runIngestion.error as Error).message}</span>
           )}
           <button
             disabled={runIngestion.isPending}
@@ -130,38 +174,54 @@ export default function Dashboard() {
         </div>
       </header>
 
-      <div className={styles.filters}>
-        <label>
-          Min score{" "}
+      <div className={styles.statRow}>
+        <StatCard label="New jobs" value={stats.newJobs} hint="status: new" />
+        <StatCard
+          label="Good matches"
+          value={stats.goodMatch}
+          hint="score ≥ 70"
+          tone="good"
+        />
+        <StatCard
+          label="Sponsor likely"
+          value={stats.sponsorLikely}
+          hint="explicit or likely"
+          tone="good"
+        />
+        <StatCard
+          label="Ready to apply"
+          value={stats.ready}
+          hint="resume prepared / ready"
+          tone="warn"
+        />
+      </div>
+
+      <div className={styles.filterBar}>
+        <ChipGroup options={RECENCY_OPTS} selected={recency} onChange={setRecency} />
+        <ChipGroup
+          options={LOCATION_OPTS}
+          selected={locations}
+          onChange={setLocations}
+          multi
+        />
+        <ChipGroup options={MODE_OPTS} selected={modes} onChange={setModes} multi />
+        <div className={styles.spacer} />
+        <label className={styles.inlineLabel}>
+          Min score
           <input
             type="number"
             min={0}
             max={100}
             value={minScore}
             onChange={(e) => setMinScore(Number(e.target.value))}
-            style={{ width: 60 }}
+            style={{ width: 56 }}
           />
         </label>
-        <label>
-          Window{" "}
-          <select
-            value={maxDays}
-            onChange={(e) => setMaxDays(Number(e.target.value))}
-          >
-            <option value={2}>Today + yesterday</option>
-            <option value={7}>Last 7 days</option>
-            <option value={14}>Last 14 days</option>
-            <option value={28}>Last 28 days</option>
-            <option value={9999}>All</option>
-          </select>
-        </label>
-        <label>
-          Status{" "}
+        <label className={styles.inlineLabel}>
+          Status
           <select
             value={statusFilter}
-            onChange={(e) =>
-              setStatusFilter(e.target.value as JobStatus | "")
-            }
+            onChange={(e) => setStatusFilter(e.target.value as JobStatus | "")}
           >
             <option value="">Any</option>
             <option value="new">New</option>
@@ -173,150 +233,82 @@ export default function Dashboard() {
         </label>
       </div>
 
-      {jobs.isLoading && <p className={page.empty}>Loading…</p>}
-      {jobs.isError && (
-        <p className={styles.err}>{(jobs.error as Error).message}</p>
-      )}
-      {!jobs.isLoading && (jobs.data?.length ?? 0) === 0 && (
-        <p className={page.empty}>
-          No jobs match these filters. Try widening the window, or{" "}
-          <Link to="/import">import a job</Link>.
-        </p>
-      )}
-
-      {BUCKET_ORDER.map((b) => {
-        const items = grouped[b];
-        if (!items?.length) return null;
-        return (
-          <BucketGroup
-            key={b}
-            label={BUCKET_LABEL[b]}
-            jobs={items}
-            companyName={companyName}
-          />
-        );
-      })}
-      {grouped.unknown?.length ? (
-        <BucketGroup
-          label={BUCKET_LABEL.unknown}
-          jobs={grouped.unknown}
-          companyName={companyName}
-        />
-      ) : null}
+      <div className={styles.body}>
+        <div className={styles.tableWrap}>
+          {jobs.isLoading && <p className={page.empty}>Loading…</p>}
+          {!jobs.isLoading && visibleRows.length === 0 && (
+            <p className={page.empty}>
+              No jobs match these filters. Run ingestion or import jobs from the Import
+              tab.
+            </p>
+          )}
+          {visibleRows.length > 0 && (
+            <div className={styles.table}>
+              <div className={`${styles.row} ${styles.head}`}>
+                <div>Score</div>
+                <div>Role</div>
+                <div>Company</div>
+                <div>Mode</div>
+                <div>Location</div>
+                <div>Sponsorship</div>
+                <div>Status</div>
+              </div>
+              {visibleRows.map((j) => (
+                <Row
+                  key={j.id}
+                  job={j}
+                  companyName={companyName(j.companyId)}
+                  selected={j.id === selectedId}
+                  onClick={() => setSelectedId(j.id)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+        <JobDetailPanel job={selectedJob} companyName={companyName} />
+      </div>
     </div>
   );
 }
 
-function BucketGroup({
-  label,
-  jobs,
-  companyName,
-}: {
-  label: string;
-  jobs: Job[];
-  companyName: (id: number) => string;
-}) {
-  return (
-    <section className={styles.bucket}>
-      <h2>
-        {label} <span className={styles.count}>{jobs.length}</span>
-      </h2>
-      <div className={styles.table}>
-        <div className={`${styles.row} ${styles.head}`}>
-          <div>Score</div>
-          <div>Role</div>
-          <div>Company</div>
-          <div>Mode</div>
-          <div>Location</div>
-          <div>Sponsorship</div>
-          <div>Status</div>
-          <div>Actions</div>
-        </div>
-        {jobs.map((j) => (
-          <JobRow key={j.id} job={j} companyName={companyName} />
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function JobRow({
+function Row({
   job,
   companyName,
+  selected,
+  onClick,
 }: {
   job: Job;
-  companyName: (id: number) => string;
+  companyName: string;
+  selected: boolean;
+  onClick: () => void;
 }) {
-  const qc = useQueryClient();
-  const mark = useMutation({
-    mutationFn: (s: JobStatus) => ipc.updateJobStatus(job.id, s),
-    onSettled: () => qc.invalidateQueries({ queryKey: ["jobs"] }),
-  });
-  const tailor = useMutation({
-    mutationFn: () => ipc.tailorResumeForJob(job.id),
-    onSettled: () => qc.invalidateQueries({ queryKey: ["jobs"] }),
-  });
-
   return (
-    <div className={styles.row}>
+    <div
+      className={`${styles.row} ${selected ? styles.rowSel : ""}`}
+      onClick={onClick}
+    >
       <div>
         <ScorePill value={job.matchScore} />
       </div>
-      <div>
-        <Link to={`/jobs/${job.id}`}>{job.roleTitle}</Link>
+      <div className={styles.role}>
+        {job.roleTitle}
         {job.jobExternalId && (
           <span className={styles.dim}> · {job.jobExternalId}</span>
         )}
       </div>
-      <div>{companyName(job.companyId)}</div>
+      <div className={styles.ellipsis}>{companyName}</div>
       <div>
         <WorkModeBadge value={job.workMode} />
       </div>
-      <div>
-        <LocationBadge text={job.location} />
-      </div>
+      <div className={styles.ellipsis}>{job.location ?? "—"}</div>
       <div>
         <SponsorshipBadge
           value={job.sponsorshipConfidence}
           reason={job.sponsorshipReason}
         />
-        <RecencyBadge value={job.recencyBucket} />
       </div>
       <div>
         <StatusBadge value={job.status} />
-      </div>
-      <div className={styles.actionRow}>
-        {job.applyUrl && (
-          <button onClick={() => ipc.openUrl(job.applyUrl!)}>Apply</button>
-        )}
-        {job.roleFolderPath && (
-          <button onClick={() => ipc.openPath(job.roleFolderPath!)}>
-            Folder
-          </button>
-        )}
-        {job.resumeFilePath ? (
-          <button onClick={() => ipc.openPath(job.resumeFilePath!)}>
-            Resume
-          </button>
-        ) : (
-          <button disabled={tailor.isPending} onClick={() => tailor.mutate()}>
-            Tailor
-          </button>
-        )}
-        <select
-          value={job.status}
-          onChange={(e) => mark.mutate(e.target.value as JobStatus)}
-        >
-          <option value="new">New</option>
-          <option value="resume_prepared">Resume ready</option>
-          <option value="ready_to_apply">Ready to apply</option>
-          <option value="applied">Applied</option>
-          <option value="oa_received">OA</option>
-          <option value="interview">Interview</option>
-          <option value="rejected">Rejected</option>
-          <option value="closed">Closed</option>
-          <option value="skipped">Skipped</option>
-        </select>
       </div>
     </div>
   );
