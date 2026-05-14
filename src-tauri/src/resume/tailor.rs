@@ -66,6 +66,7 @@ pub struct TailoredExperience {
 pub struct TailoredProject {
     pub name: String,
     pub link: Option<String>,
+    pub tools: Option<String>,
     pub bullets: Vec<String>,
 }
 
@@ -204,6 +205,7 @@ fn tailor_project(p: &ProjectEntry, needle: &BTreeSet<String>) -> TailoredProjec
     TailoredProject {
         name: p.name.clone(),
         link: p.link.clone(),
+        tools: p.tools.clone(),
         bullets: if bullets.is_empty() {
             p.bullets.iter().take(2).cloned().collect()
         } else {
