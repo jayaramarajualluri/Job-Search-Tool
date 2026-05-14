@@ -119,12 +119,12 @@ fn reorder_skills(groups: &[SkillGroup], needle: &BTreeSet<String>) -> Vec<Skill
     groups
         .iter()
         .map(|g| {
-            let mut hits: Vec<&String> = g
+            let hits: Vec<&String> = g
                 .skills
                 .iter()
                 .filter(|s| needle.contains(&s.to_lowercase()))
                 .collect();
-            let mut misses: Vec<&String> = g
+            let misses: Vec<&String> = g
                 .skills
                 .iter()
                 .filter(|s| !needle.contains(&s.to_lowercase()))

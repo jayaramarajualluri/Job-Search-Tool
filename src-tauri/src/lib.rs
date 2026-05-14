@@ -12,6 +12,8 @@
 //!   secrets      — OS keychain wrapper (Keychain / Credential Manager)
 //!   commands     — thin Tauri command handlers wiring UI ↔ core modules
 
+use tauri::Manager;
+
 pub mod config;
 pub mod db;
 pub mod domain;

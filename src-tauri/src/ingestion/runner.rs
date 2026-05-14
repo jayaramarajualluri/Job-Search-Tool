@@ -16,6 +16,8 @@ use crate::ranking::{recency, score_job, ScoreInputs};
 use chrono::Utc;
 use std::path::PathBuf;
 
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct IngestionOutcome {
     pub run_id: i64,
     pub total_fetched: u32,

@@ -10,10 +10,16 @@ use rusqlite::{params, OptionalExtension, Row};
 pub fn list(c: &DbConn, company_id: Option<i64>) -> AppResult<Vec<Account>> {
     let rows: Vec<Account> = if let Some(cid) = company_id {
         let mut stmt = c.prepare(&format!("{} WHERE company_id = ?1 ORDER BY id", SELECT_BASE))?;
-        stmt.query_map([cid], map_row)?.collect::<rusqlite::Result<Vec<_>>>()?
+        {
+            let x = stmt.query_map([cid], map_row)?.collect::<rusqlite::Result<Vec<_>>>()?;
+            x
+        }
     } else {
         let mut stmt = c.prepare(&format!("{} ORDER BY id", SELECT_BASE))?;
-        stmt.query_map([], map_row)?.collect::<rusqlite::Result<Vec<_>>>()?
+        {
+            let x = stmt.query_map([], map_row)?.collect::<rusqlite::Result<Vec<_>>>()?;
+            x
+        }
     };
     Ok(rows)
 }
