@@ -4,6 +4,8 @@
 //! content.  We never add skills, bullets, or metrics the profile doesn't
 //! already declare.
 
+pub mod ai_rewrite;
+pub mod pdf;
 pub mod renderer;
 pub mod reuse;
 pub mod tailor;
