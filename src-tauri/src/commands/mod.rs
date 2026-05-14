@@ -5,6 +5,7 @@
 use crate::error::AppResult;
 
 pub mod accounts;
+pub mod ai;
 pub mod companies;
 pub mod files;
 pub mod ingestion;

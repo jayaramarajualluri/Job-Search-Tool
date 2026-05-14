@@ -43,3 +43,36 @@ pub fn delete(account_id: i64) -> AppResult<()> {
         Err(e) => Err(e.into()),
     }
 }
+
+// ---------------------------------------------------------------------------
+// Named (non-account) secrets — used for things like the AI API key.
+// Stored under SERVICE with a user-chosen logical name; never echoed to logs.
+// ---------------------------------------------------------------------------
+
+pub fn put_named(name: &str, secret: &str) -> AppResult<()> {
+    let entry = Entry::new(SERVICE, name)?;
+    entry.set_password(secret)?;
+    tracing::info!(name = %name, "named secret stored");
+    Ok(())
+}
+
+pub fn get_named(name: &str) -> AppResult<Option<String>> {
+    let entry = Entry::new(SERVICE, name)?;
+    match entry.get_password() {
+        Ok(p) => Ok(Some(p)),
+        Err(keyring::Error::NoEntry) => Ok(None),
+        Err(e) => Err(e.into()),
+    }
+}
+
+pub fn delete_named(name: &str) -> AppResult<()> {
+    let entry = Entry::new(SERVICE, name)?;
+    match entry.delete_credential() {
+        Ok(()) => {
+            tracing::info!(name = %name, "named secret deleted");
+            Ok(())
+        }
+        Err(keyring::Error::NoEntry) => Ok(()),
+        Err(e) => Err(e.into()),
+    }
+}
