@@ -26,7 +26,7 @@ pub mod secrets;
 pub mod commands;
 
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
-
+use tauri::Manager;
 /// Initialize the Tauri application. Called from `main.rs`.
 pub fn run() {
     // Logging: default INFO, respect RUST_LOG if set.  Secret fields are

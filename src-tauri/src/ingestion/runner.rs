@@ -16,6 +16,8 @@ use crate::ranking::{recency, score_job, ScoreInputs};
 use chrono::Utc;
 use std::path::PathBuf;
 
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct IngestionOutcome {
     pub run_id: i64,
     pub total_fetched: u32,
@@ -46,7 +48,7 @@ pub async fn run(db: &Database, settings: &AppSettings, sources: &[Source]) -> A
                 entry.fetched = list.len() as u32;
                 total_fetched += entry.fetched;
                 for ingest in list {
-                    match persist_one(db, settings, ingest).await {
+                    match persist_one(db, settings, ingest, false).await {
                         Ok(PersistOutcome::Prepared(_)) => {
                             entry.prepared += 1;
                             total_prepared += 1;
@@ -92,7 +94,7 @@ pub async fn ingest_one(
     settings: &AppSettings,
     ingest: JobIngest,
 ) -> AppResult<i64> {
-    match persist_one(db, settings, ingest).await? {
+    match persist_one(db, settings, ingest, true).await? {
         PersistOutcome::Prepared(id) => Ok(id),
         PersistOutcome::FilteredOut => Ok(-1),
     }
@@ -107,6 +109,7 @@ async fn persist_one(
     db: &Database,
     settings: &AppSettings,
     mut ingest: JobIngest,
+    force_prepare: bool,
 ) -> AppResult<PersistOutcome> {
     // Detect work mode (if the source didn't already).
     if matches!(ingest.work_mode, WorkMode::Unknown) {
@@ -193,7 +196,8 @@ async fn persist_one(
 
     // File tree (only if score meets threshold or posted today/yesterday —
     // we always give today's jobs a folder so the user can triage fast).
-    let should_prepare = score >= settings.min_match_score
+    let should_prepare = force_prepare
+        || score >= settings.min_match_score
         || matches!(
             bucket,
             Some(crate::domain::job::RecencyBucket::Today)

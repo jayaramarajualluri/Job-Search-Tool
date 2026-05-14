@@ -254,7 +254,13 @@ function JobRow({
   });
   const tailor = useMutation({
     mutationFn: () => ipc.tailorResumeForJob(job.id),
-    onSettled: () => qc.invalidateQueries({ queryKey: ["jobs"] }),
+    onSuccess: (path) => {
+      alert(`Tailored resume written to:\n${path}`);
+      qc.invalidateQueries({ queryKey: ["jobs"] });
+    },
+    onError: (err) => {
+      alert(`Tailor failed: ${(err as Error).message}`);
+    },
   });
 
   return (

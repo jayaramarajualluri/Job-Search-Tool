@@ -17,7 +17,6 @@ pub fn client() -> AppResult<&'static reqwest::Client> {
         .user_agent(UA)
         .timeout(Duration::from_secs(20))
         .connect_timeout(Duration::from_secs(10))
-        .cookie_store(false)
         .gzip(true)
         .build()?;
     let _ = CLIENT.set(c);
