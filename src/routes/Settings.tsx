@@ -4,6 +4,100 @@ import * as ipc from "@/lib/ipc";
 import type { AppSettings } from "@/lib/types";
 import page from "./Page.module.css";
 
+function AiSection({
+  settings,
+  update,
+}: {
+  settings: AppSettings;
+  update: (patch: Partial<AppSettings>) => void;
+}) {
+  const qc = useQueryClient();
+  const hasKey = useQuery({
+    queryKey: ["ai-key"],
+    queryFn: () => ipc.hasAiApiKey(),
+  });
+  const [draftKey, setDraftKey] = useState("");
+  const save = useMutation({
+    mutationFn: (k: string) => ipc.setAiApiKey(k),
+    onSuccess: () => {
+      setDraftKey("");
+      qc.invalidateQueries({ queryKey: ["ai-key"] });
+    },
+  });
+  const clear = useMutation({
+    mutationFn: () => ipc.clearAiApiKey(),
+    onSettled: () => qc.invalidateQueries({ queryKey: ["ai-key"] }),
+  });
+
+  return (
+    <section className={page.card}>
+      <h3>AI rewriting (opt-in)</h3>
+      <p className={page.empty}>
+        When enabled, after the rule-based tailoring step the app sends each
+        role's selected bullets to Claude with strict instructions: preserve
+        every fact, never invent skills, only rewrite wording / emphasis to
+        match the JD. The bullet count must match — if Claude returns
+        anything else, that section silently falls back to rule-based output.
+        Your API key is stored in the OS keychain, never in the SQLite DB or
+        config files.
+      </p>
+      <label style={{ display: "block", marginBottom: 8 }}>
+        <input
+          type="checkbox"
+          checked={settings.aiRewriteEnabled}
+          onChange={(e) => update({ aiRewriteEnabled: e.target.checked })}
+        />{" "}
+        Enable AI rewriting
+      </label>
+      <label style={{ display: "block", marginBottom: 8 }}>
+        Model{" "}
+        <select
+          value={settings.aiModel}
+          onChange={(e) => update({ aiModel: e.target.value })}
+        >
+          <option value="claude-opus-4-7">claude-opus-4-7 (slowest, best)</option>
+          <option value="claude-sonnet-4-6">claude-sonnet-4-6 (balanced)</option>
+          <option value="claude-sonnet-4-5">claude-sonnet-4-5</option>
+          <option value="claude-haiku-4-5-20251001">
+            claude-haiku-4-5 (fastest)
+          </option>
+        </select>
+      </label>
+      <div style={{ marginTop: 6 }}>
+        <strong>API key:</strong>{" "}
+        <span style={{ color: hasKey.data ? "var(--good)" : "var(--text-dim)" }}>
+          {hasKey.data ? "stored in keychain" : "not set"}
+        </span>
+      </div>
+      <div style={{ marginTop: 8, display: "flex", gap: 8 }}>
+        <input
+          type="password"
+          placeholder="sk-ant-..."
+          value={draftKey}
+          onChange={(e) => setDraftKey(e.target.value)}
+          style={{ flex: 1, minWidth: 220 }}
+        />
+        <button
+          disabled={!draftKey || save.isPending}
+          onClick={() => save.mutate(draftKey)}
+        >
+          {save.isPending ? "Saving…" : "Save key"}
+        </button>
+        {hasKey.data && (
+          <button onClick={() => clear.mutate()} disabled={clear.isPending}>
+            Clear key
+          </button>
+        )}
+      </div>
+      {save.isError && (
+        <p style={{ color: "var(--bad)" }}>
+          {(save.error as Error).message}
+        </p>
+      )}
+    </section>
+  );
+}
+
 export default function Settings() {
   const qc = useQueryClient();
   const q = useQuery({
@@ -201,6 +295,18 @@ export default function Settings() {
         </label>
       </section>
 
+      <AiSection settings={s} update={update} />
+
+      <section className={page.card}>
+        <h3>PDF export</h3>
+        <p className={page.empty}>
+          The Tailor action renders <code>tailored_resume.pdf</code> via headless
+          Chrome / Edge / Brave / Chromium — whichever you already have installed.
+          If none are present the app falls back to writing
+          <code> tailored_resume.html </code> instead.
+        </p>
+      </section>
+
       <section className={page.card}>
         <h3>Advanced</h3>
         <label>
@@ -213,6 +319,38 @@ export default function Settings() {
           />{" "}
           LinkedIn discovery enabled (home-only)
         </label>
+        <div style={{ marginTop: 10, display: "flex", gap: 12, alignItems: "center" }}>
+          <label style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
+            <input
+              type="checkbox"
+              checked={(s.autoIngestionIntervalMinutes ?? 0) > 0}
+              onChange={(e) =>
+                update({
+                  autoIngestionIntervalMinutes: e.target.checked ? 60 : null,
+                })
+              }
+            />
+            Auto-run ingestion
+          </label>
+          {(s.autoIngestionIntervalMinutes ?? 0) > 0 && (
+            <label style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
+              every
+              <input
+                type="number"
+                min={5}
+                max={1440}
+                value={s.autoIngestionIntervalMinutes ?? 60}
+                onChange={(e) =>
+                  update({
+                    autoIngestionIntervalMinutes: Number(e.target.value) || null,
+                  })
+                }
+                style={{ width: 70 }}
+              />
+              minutes
+            </label>
+          )}
+        </div>
       </section>
     </div>
   );

@@ -198,3 +198,17 @@ export async function openPath(path: string): Promise<void> {
 export async function openUrl(url: string): Promise<void> {
   return invoke("open_url", { url });
 }
+
+// AI ----------------------------------------------------------------------
+
+export async function setAiApiKey(apiKey: string): Promise<void> {
+  return invoke("set_ai_api_key", { apiKey });
+}
+
+export async function hasAiApiKey(): Promise<boolean> {
+  return invoke<boolean>("has_ai_api_key");
+}
+
+export async function clearAiApiKey(): Promise<void> {
+  return invoke("clear_ai_api_key");
+}

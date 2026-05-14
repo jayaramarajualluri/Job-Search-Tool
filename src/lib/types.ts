@@ -262,6 +262,7 @@ export interface AppSettings {
   resumeSourceInputs: ResumeSourceInputs;
   linkedinDiscoveryEnabled: boolean;
   boardSlugs: BoardSlugs;
+  autoIngestionIntervalMinutes: number | null;
 }
 
 export interface SourceOutcome {
