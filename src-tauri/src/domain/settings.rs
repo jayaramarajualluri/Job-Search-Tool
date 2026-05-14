@@ -59,6 +59,23 @@ pub struct AppSettings {
 
     /// Board slugs to poll during scheduled ingestion, grouped by ATS.
     pub board_slugs: BoardSlugs,
+
+    /// Auto-run ingestion every N minutes while the app is open.  None = off.
+    #[serde(default)]
+    pub auto_ingestion_interval_minutes: Option<u32>,
+
+    /// If true, the tailor pipeline calls Claude to rewrite bullets within
+    /// strict honesty constraints (no fabrication; metrics/dates preserved).
+    /// Requires the API key to be stored in the OS keychain.
+    #[serde(default)]
+    pub ai_rewrite_enabled: bool,
+    /// Anthropic model id to use when ai_rewrite_enabled is true.
+    #[serde(default = "default_ai_model")]
+    pub ai_model: String,
+}
+
+fn default_ai_model() -> String {
+    "claude-sonnet-4-5".to_string()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -150,6 +167,9 @@ impl Default for AppSettings {
             resume_source_inputs: ResumeSourceInputs::default(),
             linkedin_discovery_enabled: true,
             board_slugs: BoardSlugs::default(),
+            auto_ingestion_interval_minutes: None,
+            ai_rewrite_enabled: false,
+            ai_model: default_ai_model(),
         }
     }
 }
