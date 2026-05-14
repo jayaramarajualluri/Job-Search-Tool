@@ -51,6 +51,8 @@ pub struct Contact {
     pub website: Option<String>,
     pub linkedin: Option<String>,
     pub github: Option<String>,
+    pub portfolio: Option<String>,
+    pub tableau: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -81,6 +83,9 @@ pub struct ExperienceEntry {
 pub struct ProjectEntry {
     pub name: String,
     pub link: Option<String>,
+    /// Short parenthetical like "R, ARIMA, ggplot2" — rendered next to name.
+    #[serde(default)]
+    pub tools: Option<String>,
     pub bullets: Vec<String>,
     #[serde(default)]
     pub bullet_tags: Vec<Vec<String>>,

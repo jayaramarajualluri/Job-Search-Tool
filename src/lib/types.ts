@@ -180,6 +180,8 @@ export interface Contact {
   website: string | null;
   linkedin: string | null;
   github: string | null;
+  portfolio: string | null;
+  tableau: string | null;
 }
 
 export interface SkillGroup {
@@ -200,6 +202,7 @@ export interface ExperienceEntry {
 export interface ProjectEntry {
   name: string;
   link: string | null;
+  tools: string | null;
   bullets: string[];
   bulletTags: string[][];
 }
