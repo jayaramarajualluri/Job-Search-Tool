@@ -7,6 +7,7 @@ const nav = [
   { to: "/accounts", label: "Accounts" },
   { to: "/resumes", label: "Resumes" },
   { to: "/import", label: "Import" },
+  { to: "/import-csv", label: "Import CSV" },
   { to: "/runs", label: "Run History" },
   { to: "/settings", label: "Settings" },
 ];
