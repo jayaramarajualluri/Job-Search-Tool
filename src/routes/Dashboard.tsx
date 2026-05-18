@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as ipc from "@/lib/ipc";
-import type { Job, JobStatus, RecencyBucket } from "@/lib/types";
+import type { Job, JobStatus, RecencyBucket, WorkMode } from "@/lib/types";
 import {
   LocationBadge,
   RecencyBadge,
@@ -38,6 +38,8 @@ export default function Dashboard() {
   const [minScore, setMinScore] = useState<number>(0);
   const [statusFilter, setStatusFilter] = useState<JobStatus | "">("");
   const [maxDays, setMaxDays] = useState<number>(7);
+  const [companyFilter, setCompanyFilter] = useState<number | "">("");
+  const [workModeFilter, setWorkModeFilter] = useState<WorkMode | "">("");
 
   const recency: RecencyBucket[] | undefined = useMemo(() => {
     if (maxDays <= 2) return ["today", "yesterday"];
@@ -65,12 +67,13 @@ export default function Dashboard() {
   }, [allJobs.data]);
 
   const jobs = useQuery({
-    queryKey: ["jobs", { minScore, statusFilter, recency }],
+    queryKey: ["jobs", { minScore, statusFilter, recency, companyFilter }],
     queryFn: () =>
       ipc.listJobs({
         minScore: minScore > 0 ? minScore : null,
         status: statusFilter || null,
         recency: recency ?? null,
+        companyId: companyFilter || null,
       }),
   });
 
@@ -114,11 +117,12 @@ export default function Dashboard() {
   const grouped = useMemo(() => {
     const g: Record<string, Job[]> = {};
     for (const j of jobs.data ?? []) {
+      if (workModeFilter && j.workMode !== workModeFilter) continue;
       const key = j.recencyBucket ?? "unknown";
       (g[key] ??= []).push(j);
     }
     return g;
-  }, [jobs.data]);
+  }, [jobs.data, workModeFilter]);
 
   return (
     <div>
@@ -204,6 +208,32 @@ export default function Dashboard() {
             <option value="ready_to_apply">Ready to apply</option>
             <option value="applied">Applied</option>
             <option value="skipped">Skipped</option>
+          </select>
+        </label>
+        <label>
+          Company{" "}
+          <select
+            value={companyFilter}
+            onChange={(e) =>
+              setCompanyFilter(e.target.value ? Number(e.target.value) : "")
+            }
+          >
+            <option value="">Any</option>
+            {(companies.data ?? []).map((c) => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Mode{" "}
+          <select
+            value={workModeFilter}
+            onChange={(e) => setWorkModeFilter(e.target.value as WorkMode | "")}
+          >
+            <option value="">Any</option>
+            <option value="remote">Remote</option>
+            <option value="hybrid">Hybrid</option>
+            <option value="onsite">On-site</option>
           </select>
         </label>
       </div>
