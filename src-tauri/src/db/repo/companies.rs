@@ -49,6 +49,14 @@ pub fn upsert_by_name(c: &DbConn, name: &str) -> AppResult<Company> {
     Ok(get(c, id)?.expect("company was just inserted"))
 }
 
+pub fn update_notes(c: &DbConn, id: i64, notes: Option<&str>) -> AppResult<()> {
+    c.execute(
+        "UPDATE companies SET notes = ?1, updated_at = datetime('now') WHERE id = ?2",
+        params![notes, id],
+    )?;
+    Ok(())
+}
+
 pub fn set_folder_path(c: &DbConn, id: i64, path: &str) -> AppResult<()> {
     c.execute(
         "UPDATE companies SET company_folder_path = ?1, updated_at = datetime('now') WHERE id = ?2",

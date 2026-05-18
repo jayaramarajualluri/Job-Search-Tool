@@ -61,6 +61,7 @@ pub fn run() {
 
             // Companies
             commands::companies::list_companies,
+            commands::companies::update_company_notes,
 
             // Accounts
             commands::accounts::list_accounts,

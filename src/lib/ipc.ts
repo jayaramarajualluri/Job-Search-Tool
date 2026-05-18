@@ -57,6 +57,13 @@ export async function listCompanies(): Promise<Company[]> {
   return invoke<Company[]>("list_companies");
 }
 
+export async function updateCompanyNotes(
+  id: number,
+  notes: string | null,
+): Promise<void> {
+  return invoke("update_company_notes", { id, notes });
+}
+
 // Accounts -------------------------------------------------------------------
 
 export async function listAccounts(companyId?: number): Promise<Account[]> {
