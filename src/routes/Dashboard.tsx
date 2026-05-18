@@ -11,6 +11,7 @@ import {
   StatusBadge,
   WorkModeBadge,
 } from "@/components/Badges";
+import JobDetailPanel from "@/components/JobDetailPanel";
 import page from "./Page.module.css";
 import styles from "./Dashboard.module.css";
 
@@ -40,6 +41,7 @@ export default function Dashboard() {
   const [maxDays, setMaxDays] = useState<number>(7);
   const [companyFilter, setCompanyFilter] = useState<number | "">("");
   const [workModeFilter, setWorkModeFilter] = useState<WorkMode | "">("");
+  const [panelJobId, setPanelJobId] = useState<number | null>(null);
 
   const recency: RecencyBucket[] | undefined = useMemo(() => {
     if (maxDays <= 2) return ["today", "yesterday"];
@@ -306,6 +308,7 @@ export default function Dashboard() {
             label={BUCKET_LABEL[b]}
             jobs={items}
             companyName={companyName}
+            onSelectJob={setPanelJobId}
           />
         );
       })}
@@ -314,8 +317,11 @@ export default function Dashboard() {
           label={BUCKET_LABEL.unknown}
           jobs={grouped.unknown}
           companyName={companyName}
+          onSelectJob={setPanelJobId}
         />
       ) : null}
+
+      <JobDetailPanel jobId={panelJobId} onClose={() => setPanelJobId(null)} />
     </div>
   );
 }
@@ -324,10 +330,12 @@ function BucketGroup({
   label,
   jobs,
   companyName,
+  onSelectJob,
 }: {
   label: string;
   jobs: Job[];
   companyName: (id: number) => string;
+  onSelectJob: (id: number) => void;
 }) {
   return (
     <section className={styles.bucket}>
@@ -346,7 +354,7 @@ function BucketGroup({
           <div>Actions</div>
         </div>
         {jobs.map((j) => (
-          <JobRow key={j.id} job={j} companyName={companyName} />
+          <JobRow key={j.id} job={j} companyName={companyName} onSelect={onSelectJob} />
         ))}
       </div>
     </section>
@@ -356,9 +364,11 @@ function BucketGroup({
 function JobRow({
   job,
   companyName,
+  onSelect,
 }: {
   job: Job;
   companyName: (id: number) => string;
+  onSelect: (id: number) => void;
 }) {
   const qc = useQueryClient();
   const mark = useMutation({
@@ -382,7 +392,12 @@ function JobRow({
         <ScorePill value={job.matchScore} />
       </div>
       <div>
-        <Link to={`/jobs/${job.id}`}>{job.roleTitle}</Link>
+        <button
+          style={{ background: "none", border: "none", padding: 0, color: "var(--accent)", cursor: "pointer", textAlign: "left" }}
+          onClick={() => onSelect(job.id)}
+        >
+          {job.roleTitle}
+        </button>
         {job.jobExternalId && (
           <span className={styles.dim}> · {job.jobExternalId}</span>
         )}
