@@ -48,6 +48,22 @@ export default function Dashboard() {
     return undefined; // all buckets
   }, [maxDays]);
 
+  const allJobs = useQuery({
+    queryKey: ["jobs", "all-stats"],
+    queryFn: () => ipc.listJobs({ includeExplicitNoSponsorship: true }),
+  });
+
+  const stats = useMemo(() => {
+    const counts = { new: 0, applied: 0, interview: 0, rejected: 0 };
+    for (const j of allJobs.data ?? []) {
+      if (j.status === "new") counts.new++;
+      else if (j.status === "applied") counts.applied++;
+      else if (j.status === "interview" || j.status === "oa_received") counts.interview++;
+      else if (j.status === "rejected") counts.rejected++;
+    }
+    return counts;
+  }, [allJobs.data]);
+
   const jobs = useQuery({
     queryKey: ["jobs", { minScore, statusFilter, recency }],
     queryFn: () =>
@@ -129,6 +145,25 @@ export default function Dashboard() {
           </button>
         </div>
       </header>
+
+      <div className={styles.statsBar}>
+        <div className={styles.statCard}>
+          <span className={styles.statLabel}>New</span>
+          <span className={`${styles.statValue} ${styles.neutral}`}>{stats.new}</span>
+        </div>
+        <div className={styles.statCard}>
+          <span className={styles.statLabel}>Applied</span>
+          <span className={`${styles.statValue} ${styles.good}`}>{stats.applied}</span>
+        </div>
+        <div className={styles.statCard}>
+          <span className={styles.statLabel}>Interview / OA</span>
+          <span className={`${styles.statValue} ${styles.warn}`}>{stats.interview}</span>
+        </div>
+        <div className={styles.statCard}>
+          <span className={styles.statLabel}>Rejected</span>
+          <span className={`${styles.statValue} ${styles.bad}`}>{stats.rejected}</span>
+        </div>
+      </div>
 
       <div className={styles.filters}>
         <label>
