@@ -87,6 +87,48 @@ export default function Dashboard() {
     return (id: number) => m.get(id) ?? `#${id}`;
   }, [companies.data]);
 
+  function exportCsv() {
+    const visibleJobs: Job[] = [];
+    for (const b of [...BUCKET_ORDER, "unknown" as const]) {
+      if (grouped[b]) visibleJobs.push(...grouped[b]);
+    }
+    const header = [
+      "id", "company", "role", "location", "workMode", "status",
+      "score", "sponsorship", "postedDate", "applyUrl", "sourceUrl",
+    ];
+    const escape = (v: unknown) => {
+      const s = v == null ? "" : String(v);
+      return s.includes(",") || s.includes('"') || s.includes("\n")
+        ? `"${s.replace(/"/g, '""')}"`
+        : s;
+    };
+    const rows = visibleJobs.map((j) =>
+      [
+        j.id,
+        companyName(j.companyId),
+        j.roleTitle,
+        j.location ?? "",
+        j.workMode,
+        j.status,
+        j.matchScore ?? "",
+        j.sponsorshipConfidence,
+        j.postedDate ?? "",
+        j.applyUrl ?? "",
+        j.sourceUrl ?? "",
+      ]
+        .map(escape)
+        .join(","),
+    );
+    const csv = [header.join(","), ...rows].join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `jobs-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   const runIngestion = useMutation({
     mutationFn: async () => {
       const settings = await ipc.loadSettings();
@@ -141,6 +183,12 @@ export default function Dashboard() {
               {runIngestion.data.totalFetched}
             </span>
           )}
+          <button
+            disabled={(jobs.data?.length ?? 0) === 0}
+            onClick={exportCsv}
+          >
+            Export CSV
+          </button>
           <button
             disabled={runIngestion.isPending}
             onClick={() => runIngestion.mutate()}
