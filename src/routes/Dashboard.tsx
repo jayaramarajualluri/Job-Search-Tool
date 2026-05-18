@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as ipc from "@/lib/ipc";
@@ -42,6 +42,7 @@ export default function Dashboard() {
   const [companyFilter, setCompanyFilter] = useState<number | "">("");
   const [workModeFilter, setWorkModeFilter] = useState<WorkMode | "">("");
   const [panelJobId, setPanelJobId] = useState<number | null>(null);
+  const [focusedIdx, setFocusedIdx] = useState<number>(-1);
 
   const recency: RecencyBucket[] | undefined = useMemo(() => {
     if (maxDays <= 2) return ["today", "yesterday"];
@@ -167,6 +168,40 @@ export default function Dashboard() {
     }
     return g;
   }, [jobs.data, workModeFilter]);
+
+  const flatJobs = useMemo(() => {
+    const out: Job[] = [];
+    for (const b of [...BUCKET_ORDER, "unknown" as const]) {
+      if (grouped[b]) out.push(...grouped[b]);
+    }
+    return out;
+  }, [grouped]);
+
+  const closePanel = useCallback(() => setPanelJobId(null), []);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (panelJobId != null) return; // panel handles its own Esc
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      if (e.key === "j") {
+        setFocusedIdx((i) => Math.min(i + 1, flatJobs.length - 1));
+      } else if (e.key === "k") {
+        setFocusedIdx((i) => Math.max(i - 1, 0));
+      } else if (e.key === "Enter" && focusedIdx >= 0) {
+        const j = flatJobs[focusedIdx];
+        if (j) setPanelJobId(j.id);
+      } else if (e.key === "o" && focusedIdx >= 0) {
+        const j = flatJobs[focusedIdx];
+        if (j?.roleFolderPath) ipc.openPath(j.roleFolderPath);
+      } else if (e.key === "a" && focusedIdx >= 0) {
+        const j = flatJobs[focusedIdx];
+        if (j?.applyUrl) ipc.openUrl(j.applyUrl);
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [flatJobs, focusedIdx, panelJobId]);
 
   return (
     <div>
@@ -309,6 +344,7 @@ export default function Dashboard() {
             jobs={items}
             companyName={companyName}
             onSelectJob={setPanelJobId}
+            focusedJobId={flatJobs[focusedIdx]?.id ?? -1}
           />
         );
       })}
@@ -318,10 +354,11 @@ export default function Dashboard() {
           jobs={grouped.unknown}
           companyName={companyName}
           onSelectJob={setPanelJobId}
+          focusedJobId={flatJobs[focusedIdx]?.id ?? -1}
         />
       ) : null}
 
-      <JobDetailPanel jobId={panelJobId} onClose={() => setPanelJobId(null)} />
+      <JobDetailPanel jobId={panelJobId} onClose={closePanel} />
     </div>
   );
 }
@@ -331,11 +368,13 @@ function BucketGroup({
   jobs,
   companyName,
   onSelectJob,
+  focusedJobId,
 }: {
   label: string;
   jobs: Job[];
   companyName: (id: number) => string;
   onSelectJob: (id: number) => void;
+  focusedJobId: number;
 }) {
   return (
     <section className={styles.bucket}>
@@ -354,7 +393,13 @@ function BucketGroup({
           <div>Actions</div>
         </div>
         {jobs.map((j) => (
-          <JobRow key={j.id} job={j} companyName={companyName} onSelect={onSelectJob} />
+          <JobRow
+            key={j.id}
+            job={j}
+            companyName={companyName}
+            onSelect={onSelectJob}
+            focused={j.id === focusedJobId}
+          />
         ))}
       </div>
     </section>
@@ -365,11 +410,17 @@ function JobRow({
   job,
   companyName,
   onSelect,
+  focused,
 }: {
   job: Job;
   companyName: (id: number) => string;
   onSelect: (id: number) => void;
+  focused: boolean;
 }) {
+  const rowRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (focused) rowRef.current?.scrollIntoView({ block: "nearest" });
+  }, [focused]);
   const qc = useQueryClient();
   const mark = useMutation({
     mutationFn: (s: JobStatus) => ipc.updateJobStatus(job.id, s),
@@ -387,7 +438,11 @@ function JobRow({
   });
 
   return (
-    <div className={styles.row}>
+    <div
+      ref={rowRef}
+      className={styles.row}
+      style={focused ? { background: "var(--panel-2)", outline: "1px solid var(--accent)" } : undefined}
+    >
       <div>
         <ScorePill value={job.matchScore} />
       </div>
