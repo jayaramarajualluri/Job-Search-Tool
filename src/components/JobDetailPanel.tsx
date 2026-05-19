@@ -16,7 +16,9 @@ interface Props {
   jobId: number | null;
   onClose: () => void;
 }
-
+function stripHtml(html: string): string {
+  return html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+}
 export default function JobDetailPanel({ jobId, onClose }: Props) {
   const job = useQuery({
     queryKey: ["job", jobId],
@@ -145,7 +147,7 @@ export default function JobDetailPanel({ jobId, onClose }: Props) {
               <section className={styles.section}>
                 <div className={styles.sectionLabel}>Summary</div>
                 <p style={{ color: "var(--text-dim)", margin: 0, fontSize: 13 }}>
-                  {j.jdSummary}
+                  {stripHtml(j.jdSummary)}
                 </p>
               </section>
             )}
