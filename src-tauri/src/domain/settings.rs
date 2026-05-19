@@ -59,6 +59,10 @@ pub struct AppSettings {
 
     /// Board slugs to poll during scheduled ingestion, grouped by ATS.
     pub board_slugs: BoardSlugs,
+
+    /// Anthropic API key for AI-powered resume tailoring (optional).
+    #[serde(default)]
+    pub anthropic_api_key: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]

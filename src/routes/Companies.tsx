@@ -1,9 +1,13 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import type { Company } from "@/lib/types";
 import * as ipc from "@/lib/ipc";
 import page from "./Page.module.css";
 
 export default function Companies() {
+  const qc = useQueryClient();
+
   const companies = useQuery({
     queryKey: ["companies"],
     queryFn: () => ipc.listCompanies(),
@@ -32,39 +36,93 @@ export default function Companies() {
       )}
       <div style={{ display: "grid", gap: 8 }}>
         {(companies.data ?? []).map((c) => (
-          <section key={c.id} className={page.card}>
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "baseline",
-                gap: 8,
-              }}
-            >
-              <div>
-                <b>{c.name}</b>
-                <span style={{ color: "var(--text-dim)", marginLeft: 8 }}>
-                  {jobCountByCompany.get(c.id) ?? 0} jobs
-                </span>
-              </div>
-              <div style={{ display: "flex", gap: 6 }}>
-                {c.companyFolderPath && (
-                  <button onClick={() => ipc.openPath(c.companyFolderPath!)}>
-                    Open folder
-                  </button>
-                )}
-                <Link to="/accounts">Accounts</Link>
-              </div>
-            </div>
-            {c.companyFolderPath && (
-              <div style={{ color: "var(--text-dim)", fontSize: 12, marginTop: 4 }}>
-                {c.companyFolderPath}
-              </div>
-            )}
-            {c.notes && <div style={{ marginTop: 6 }}>{c.notes}</div>}
-          </section>
+          <CompanyCard
+            key={c.id}
+            company={c}
+            jobCount={jobCountByCompany.get(c.id) ?? 0}
+            onSaved={() => qc.invalidateQueries({ queryKey: ["companies"] })}
+          />
         ))}
       </div>
     </div>
+  );
+}
+
+function CompanyCard({
+  company,
+  jobCount,
+  onSaved,
+}: {
+  company: Company;
+  jobCount: number;
+  onSaved: () => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(company.notes ?? "");
+
+  const save = useMutation({
+    mutationFn: () =>
+      ipc.updateCompanyNotes(company.id, draft.trim() || null),
+    onSuccess: () => {
+      setEditing(false);
+      onSaved();
+    },
+  });
+
+  return (
+    <section className={page.card}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "baseline",
+          gap: 8,
+        }}
+      >
+        <div>
+          <b>{company.name}</b>
+          <span style={{ color: "var(--text-dim)", marginLeft: 8 }}>
+            {jobCount} jobs
+          </span>
+        </div>
+        <div style={{ display: "flex", gap: 6 }}>
+          {company.companyFolderPath && (
+            <button onClick={() => ipc.openPath(company.companyFolderPath!)}>
+              Open folder
+            </button>
+          )}
+          <Link to="/accounts">Accounts</Link>
+          <button onClick={() => { setDraft(company.notes ?? ""); setEditing(true); }}>
+            {company.notes ? "Edit notes" : "Add notes"}
+          </button>
+        </div>
+      </div>
+      {company.companyFolderPath && (
+        <div style={{ color: "var(--text-dim)", fontSize: 12, marginTop: 4 }}>
+          {company.companyFolderPath}
+        </div>
+      )}
+      {editing ? (
+        <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 6 }}>
+          <textarea
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            rows={3}
+            style={{ width: "100%", resize: "vertical" }}
+            autoFocus
+          />
+          <div style={{ display: "flex", gap: 6 }}>
+            <button disabled={save.isPending} onClick={() => save.mutate()}>
+              Save
+            </button>
+            <button onClick={() => setEditing(false)}>Cancel</button>
+          </div>
+        </div>
+      ) : (
+        company.notes && (
+          <div style={{ marginTop: 6, color: "var(--text-dim)" }}>{company.notes}</div>
+        )
+      )}
+    </section>
   );
 }

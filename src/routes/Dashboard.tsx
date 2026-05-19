@@ -1,8 +1,8 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as ipc from "@/lib/ipc";
-import type { Job, JobStatus, RecencyBucket } from "@/lib/types";
+import type { AppSettings, Job, JobStatus, RecencyBucket, WorkMode } from "@/lib/types";
 import {
   LocationBadge,
   RecencyBadge,
@@ -11,6 +11,7 @@ import {
   StatusBadge,
   WorkModeBadge,
 } from "@/components/Badges";
+import JobDetailPanel from "@/components/JobDetailPanel";
 import page from "./Page.module.css";
 import styles from "./Dashboard.module.css";
 
@@ -38,6 +39,10 @@ export default function Dashboard() {
   const [minScore, setMinScore] = useState<number>(0);
   const [statusFilter, setStatusFilter] = useState<JobStatus | "">("");
   const [maxDays, setMaxDays] = useState<number>(7);
+  const [companyFilter, setCompanyFilter] = useState<number | "">("");
+  const [workModeFilter, setWorkModeFilter] = useState<WorkMode | "">("");
+  const [panelJobId, setPanelJobId] = useState<number | null>(null);
+  const [focusedIdx, setFocusedIdx] = useState<number>(-1);
 
   const recency: RecencyBucket[] | undefined = useMemo(() => {
     if (maxDays <= 2) return ["today", "yesterday"];
@@ -48,13 +53,30 @@ export default function Dashboard() {
     return undefined; // all buckets
   }, [maxDays]);
 
+  const allJobs = useQuery({
+    queryKey: ["jobs", "all-stats"],
+    queryFn: () => ipc.listJobs({ includeExplicitNoSponsorship: true }),
+  });
+
+  const stats = useMemo(() => {
+    const counts = { new: 0, applied: 0, interview: 0, rejected: 0 };
+    for (const j of allJobs.data ?? []) {
+      if (j.status === "new") counts.new++;
+      else if (j.status === "applied") counts.applied++;
+      else if (j.status === "interview" || j.status === "oa_received") counts.interview++;
+      else if (j.status === "rejected") counts.rejected++;
+    }
+    return counts;
+  }, [allJobs.data]);
+
   const jobs = useQuery({
-    queryKey: ["jobs", { minScore, statusFilter, recency }],
+    queryKey: ["jobs", { minScore, statusFilter, recency, companyFilter }],
     queryFn: () =>
       ipc.listJobs({
         minScore: minScore > 0 ? minScore : null,
         status: statusFilter || null,
         recency: recency ?? null,
+        companyId: companyFilter || null,
       }),
   });
 
@@ -67,6 +89,54 @@ export default function Dashboard() {
     for (const c of companies.data ?? []) m.set(c.id, c.name);
     return (id: number) => m.get(id) ?? `#${id}`;
   }, [companies.data]);
+
+  const settings = useQuery<AppSettings>({
+    queryKey: ["settings"],
+    queryFn: () => ipc.loadSettings(),
+  });
+  const hasAiKey = !!(settings.data?.anthropicApiKey);
+
+  function exportCsv() {
+    const visibleJobs: Job[] = [];
+    for (const b of [...BUCKET_ORDER, "unknown" as const]) {
+      if (grouped[b]) visibleJobs.push(...grouped[b]);
+    }
+    const header = [
+      "id", "company", "role", "location", "workMode", "status",
+      "score", "sponsorship", "postedDate", "applyUrl", "sourceUrl",
+    ];
+    const escape = (v: unknown) => {
+      const s = v == null ? "" : String(v);
+      return s.includes(",") || s.includes('"') || s.includes("\n")
+        ? `"${s.replace(/"/g, '""')}"`
+        : s;
+    };
+    const rows = visibleJobs.map((j) =>
+      [
+        j.id,
+        companyName(j.companyId),
+        j.roleTitle,
+        j.location ?? "",
+        j.workMode,
+        j.status,
+        j.matchScore ?? "",
+        j.sponsorshipConfidence,
+        j.postedDate ?? "",
+        j.applyUrl ?? "",
+        j.sourceUrl ?? "",
+      ]
+        .map(escape)
+        .join(","),
+    );
+    const csv = [header.join(","), ...rows].join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `jobs-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
 
   const runIngestion = useMutation({
     mutationFn: async () => {
@@ -98,11 +168,46 @@ export default function Dashboard() {
   const grouped = useMemo(() => {
     const g: Record<string, Job[]> = {};
     for (const j of jobs.data ?? []) {
+      if (workModeFilter && j.workMode !== workModeFilter) continue;
       const key = j.recencyBucket ?? "unknown";
       (g[key] ??= []).push(j);
     }
     return g;
-  }, [jobs.data]);
+  }, [jobs.data, workModeFilter]);
+
+  const flatJobs = useMemo(() => {
+    const out: Job[] = [];
+    for (const b of [...BUCKET_ORDER, "unknown" as const]) {
+      if (grouped[b]) out.push(...grouped[b]);
+    }
+    return out;
+  }, [grouped]);
+
+  const closePanel = useCallback(() => setPanelJobId(null), []);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (panelJobId != null) return; // panel handles its own Esc
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      if (e.key === "j") {
+        setFocusedIdx((i) => Math.min(i + 1, flatJobs.length - 1));
+      } else if (e.key === "k") {
+        setFocusedIdx((i) => Math.max(i - 1, 0));
+      } else if (e.key === "Enter" && focusedIdx >= 0) {
+        const j = flatJobs[focusedIdx];
+        if (j) setPanelJobId(j.id);
+      } else if (e.key === "o" && focusedIdx >= 0) {
+        const j = flatJobs[focusedIdx];
+        if (j?.roleFolderPath) ipc.openPath(j.roleFolderPath);
+      } else if (e.key === "a" && focusedIdx >= 0) {
+        const j = flatJobs[focusedIdx];
+        if (j?.applyUrl) ipc.openUrl(j.applyUrl);
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [flatJobs, focusedIdx, panelJobId]);
 
   return (
     <div>
@@ -122,6 +227,12 @@ export default function Dashboard() {
             </span>
           )}
           <button
+            disabled={(jobs.data?.length ?? 0) === 0}
+            onClick={exportCsv}
+          >
+            Export CSV
+          </button>
+          <button
             disabled={runIngestion.isPending}
             onClick={() => runIngestion.mutate()}
           >
@@ -129,6 +240,25 @@ export default function Dashboard() {
           </button>
         </div>
       </header>
+
+      <div className={styles.statsBar}>
+        <div className={styles.statCard}>
+          <span className={styles.statLabel}>New</span>
+          <span className={`${styles.statValue} ${styles.neutral}`}>{stats.new}</span>
+        </div>
+        <div className={styles.statCard}>
+          <span className={styles.statLabel}>Applied</span>
+          <span className={`${styles.statValue} ${styles.good}`}>{stats.applied}</span>
+        </div>
+        <div className={styles.statCard}>
+          <span className={styles.statLabel}>Interview / OA</span>
+          <span className={`${styles.statValue} ${styles.warn}`}>{stats.interview}</span>
+        </div>
+        <div className={styles.statCard}>
+          <span className={styles.statLabel}>Rejected</span>
+          <span className={`${styles.statValue} ${styles.bad}`}>{stats.rejected}</span>
+        </div>
+      </div>
 
       <div className={styles.filters}>
         <label>
@@ -171,6 +301,32 @@ export default function Dashboard() {
             <option value="skipped">Skipped</option>
           </select>
         </label>
+        <label>
+          Company{" "}
+          <select
+            value={companyFilter}
+            onChange={(e) =>
+              setCompanyFilter(e.target.value ? Number(e.target.value) : "")
+            }
+          >
+            <option value="">Any</option>
+            {(companies.data ?? []).map((c) => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Mode{" "}
+          <select
+            value={workModeFilter}
+            onChange={(e) => setWorkModeFilter(e.target.value as WorkMode | "")}
+          >
+            <option value="">Any</option>
+            <option value="remote">Remote</option>
+            <option value="hybrid">Hybrid</option>
+            <option value="onsite">On-site</option>
+          </select>
+        </label>
       </div>
 
       {jobs.isLoading && <p className={page.empty}>Loading…</p>}
@@ -193,6 +349,9 @@ export default function Dashboard() {
             label={BUCKET_LABEL[b]}
             jobs={items}
             companyName={companyName}
+            onSelectJob={setPanelJobId}
+            focusedJobId={flatJobs[focusedIdx]?.id ?? -1}
+            hasAiKey={hasAiKey}
           />
         );
       })}
@@ -201,8 +360,13 @@ export default function Dashboard() {
           label={BUCKET_LABEL.unknown}
           jobs={grouped.unknown}
           companyName={companyName}
+          onSelectJob={setPanelJobId}
+          focusedJobId={flatJobs[focusedIdx]?.id ?? -1}
+          hasAiKey={hasAiKey}
         />
       ) : null}
+
+      <JobDetailPanel jobId={panelJobId} onClose={closePanel} />
     </div>
   );
 }
@@ -211,10 +375,16 @@ function BucketGroup({
   label,
   jobs,
   companyName,
+  onSelectJob,
+  focusedJobId,
+  hasAiKey,
 }: {
   label: string;
   jobs: Job[];
   companyName: (id: number) => string;
+  onSelectJob: (id: number) => void;
+  focusedJobId: number;
+  hasAiKey: boolean;
 }) {
   return (
     <section className={styles.bucket}>
@@ -233,7 +403,14 @@ function BucketGroup({
           <div>Actions</div>
         </div>
         {jobs.map((j) => (
-          <JobRow key={j.id} job={j} companyName={companyName} />
+          <JobRow
+            key={j.id}
+            job={j}
+            companyName={companyName}
+            onSelect={onSelectJob}
+            focused={j.id === focusedJobId}
+            hasAiKey={hasAiKey}
+          />
         ))}
       </div>
     </section>
@@ -243,10 +420,20 @@ function BucketGroup({
 function JobRow({
   job,
   companyName,
+  onSelect,
+  focused,
+  hasAiKey,
 }: {
   job: Job;
   companyName: (id: number) => string;
+  onSelect: (id: number) => void;
+  focused: boolean;
+  hasAiKey: boolean;
 }) {
+  const rowRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (focused) rowRef.current?.scrollIntoView({ block: "nearest" });
+  }, [focused]);
   const qc = useQueryClient();
   const mark = useMutation({
     mutationFn: (s: JobStatus) => ipc.updateJobStatus(job.id, s),
@@ -262,14 +449,33 @@ function JobRow({
       alert(`Tailor failed: ${(err as Error).message}`);
     },
   });
+  const tailorAi = useMutation({
+    mutationFn: () => ipc.tailorResumeForJobAi(job.id),
+    onSuccess: (path) => {
+      alert(`AI-tailored resume written to:\n${path}`);
+      qc.invalidateQueries({ queryKey: ["jobs"] });
+    },
+    onError: (err) => {
+      alert(`AI tailor failed: ${(err as Error).message}`);
+    },
+  });
 
   return (
-    <div className={styles.row}>
+    <div
+      ref={rowRef}
+      className={styles.row}
+      style={focused ? { background: "var(--panel-2)", outline: "1px solid var(--accent)" } : undefined}
+    >
       <div>
         <ScorePill value={job.matchScore} />
       </div>
       <div>
-        <Link to={`/jobs/${job.id}`}>{job.roleTitle}</Link>
+        <button
+          style={{ background: "none", border: "none", padding: 0, color: "var(--accent)", cursor: "pointer", textAlign: "left" }}
+          onClick={() => onSelect(job.id)}
+        >
+          {job.roleTitle}
+        </button>
         {job.jobExternalId && (
           <span className={styles.dim}> · {job.jobExternalId}</span>
         )}
@@ -305,8 +511,17 @@ function JobRow({
             Resume
           </button>
         ) : (
-          <button disabled={tailor.isPending} onClick={() => tailor.mutate()}>
+          <button disabled={tailor.isPending || tailorAi.isPending} onClick={() => tailor.mutate()}>
             Tailor
+          </button>
+        )}
+        {hasAiKey && (
+          <button
+            disabled={tailorAi.isPending || tailor.isPending}
+            onClick={() => tailorAi.mutate()}
+            title="AI-powered tailoring via Claude"
+          >
+            {tailorAi.isPending ? "AI…" : "AI Tailor"}
           </button>
         )}
         <select

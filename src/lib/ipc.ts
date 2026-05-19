@@ -57,6 +57,13 @@ export async function listCompanies(): Promise<Company[]> {
   return invoke<Company[]>("list_companies");
 }
 
+export async function updateCompanyNotes(
+  id: number,
+  notes: string | null,
+): Promise<void> {
+  return invoke("update_company_notes", { id, notes });
+}
+
 // Accounts -------------------------------------------------------------------
 
 export async function listAccounts(companyId?: number): Promise<Account[]> {
@@ -187,6 +194,10 @@ export async function listResumesForJob(jobId: number): Promise<Resume[]> {
 
 export async function tailorResumeForJob(jobId: number): Promise<string> {
   return invoke<string>("tailor_resume_for_job", { jobId });
+}
+
+export async function tailorResumeForJobAi(jobId: number): Promise<string> {
+  return invoke<string>("tailor_resume_for_job_ai", { jobId });
 }
 
 // Files / URLs ---------------------------------------------------------------

@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as ipc from "@/lib/ipc";
@@ -40,6 +41,22 @@ export default function JobDetail() {
     enabled: !Number.isNaN(jobId),
   });
 
+  const settings = useQuery({
+    queryKey: ["settings"],
+    queryFn: () => ipc.loadSettings(),
+  });
+
+  const skillMatch = useMemo(() => {
+    const target = settings.data?.targetSkills ?? [];
+    const haystack = (job.data?.jdText ?? "").toLowerCase();
+    const matched: string[] = [];
+    const missing: string[] = [];
+    for (const skill of target) {
+      (haystack.includes(skill.toLowerCase()) ? matched : missing).push(skill);
+    }
+    return { matched, missing };
+  }, [settings.data, job.data]);
+
   const setStatus = useMutation({
     mutationFn: (s: JobStatus) => ipc.updateJobStatus(jobId, s),
     onSettled: () => qc.invalidateQueries({ queryKey: ["job", jobId] }),
@@ -52,6 +69,18 @@ export default function JobDetail() {
       qc.invalidateQueries({ queryKey: ["resumes", jobId] });
     },
   });
+
+  const tailorAi = useMutation({
+    mutationFn: () => ipc.tailorResumeForJobAi(jobId),
+    onSuccess: (path) => alert(`AI-tailored resume written to:\n${path}`),
+    onError: (err) => alert(`AI tailor failed: ${(err as Error).message}`),
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ["job", jobId] });
+      qc.invalidateQueries({ queryKey: ["resumes", jobId] });
+    },
+  });
+
+  const hasAiKey = !!(settings.data?.anthropicApiKey);
 
   if (job.isLoading) {
     return (
@@ -128,10 +157,19 @@ export default function JobDetail() {
           </button>
         ) : (
           <button
-            disabled={tailor.isPending || !j.roleFolderPath}
+            disabled={tailor.isPending || tailorAi.isPending || !j.roleFolderPath}
             onClick={() => tailor.mutate()}
           >
             {tailor.isPending ? "Tailoring…" : "Tailor resume"}
+          </button>
+        )}
+        {hasAiKey && (
+          <button
+            disabled={tailorAi.isPending || tailor.isPending || !j.roleFolderPath}
+            onClick={() => tailorAi.mutate()}
+            title="AI-powered tailoring via Claude"
+          >
+            {tailorAi.isPending ? "AI tailoring…" : "AI Tailor (Claude)"}
           </button>
         )}
         <select
@@ -169,6 +207,60 @@ export default function JobDetail() {
                 <li key={i}>{n}</li>
               ))}
             </ul>
+          )}
+        </section>
+      )}
+
+      {(skillMatch.matched.length > 0 || skillMatch.missing.length > 0) && (
+        <section className={page.card}>
+          <h3>Skills</h3>
+          {skillMatch.matched.length > 0 && (
+            <div style={{ marginBottom: 8 }}>
+              <div style={{ fontSize: 11, color: "var(--text-dim)", marginBottom: 4 }}>
+                MATCHED ({skillMatch.matched.length})
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {skillMatch.matched.map((s) => (
+                  <span
+                    key={s}
+                    style={{
+                      background: "rgba(62,207,142,0.15)",
+                      color: "var(--good)",
+                      border: "1px solid var(--good)",
+                      borderRadius: 4,
+                      padding: "2px 8px",
+                      fontSize: 12,
+                    }}
+                  >
+                    {s}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+          {skillMatch.missing.length > 0 && (
+            <div>
+              <div style={{ fontSize: 11, color: "var(--text-dim)", marginBottom: 4 }}>
+                MISSING ({skillMatch.missing.length})
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {skillMatch.missing.map((s) => (
+                  <span
+                    key={s}
+                    style={{
+                      background: "rgba(239,104,115,0.1)",
+                      color: "var(--bad)",
+                      border: "1px solid var(--bad)",
+                      borderRadius: 4,
+                      padding: "2px 8px",
+                      fontSize: 12,
+                    }}
+                  >
+                    {s}
+                  </span>
+                ))}
+              </div>
+            </div>
           )}
         </section>
       )}

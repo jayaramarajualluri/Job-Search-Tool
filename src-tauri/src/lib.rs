@@ -61,6 +61,7 @@ pub fn run() {
 
             // Companies
             commands::companies::list_companies,
+            commands::companies::update_company_notes,
 
             // Accounts
             commands::accounts::list_accounts,
@@ -88,6 +89,7 @@ pub fn run() {
             commands::resumes::save_canonical_profile,
             commands::resumes::list_resumes_for_job,
             commands::resumes::tailor_resume_for_job,
+            commands::resumes::tailor_resume_for_job_ai,
 
             // Files
             commands::files::open_path,

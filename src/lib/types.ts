@@ -259,6 +259,7 @@ export interface AppSettings {
   resumeSourceInputs: ResumeSourceInputs;
   linkedinDiscoveryEnabled: boolean;
   boardSlugs: BoardSlugs;
+  anthropicApiKey: string | null;
 }
 
 export interface SourceOutcome {

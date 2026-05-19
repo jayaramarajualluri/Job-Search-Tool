@@ -199,6 +199,21 @@ export default function Settings() {
             style={{ width: "100%" }}
           />
         </label>
+        <label style={{ display: "block", marginTop: 12 }}>
+          Anthropic API key (for AI tailoring)
+          <input
+            type="password"
+            value={s.anthropicApiKey ?? ""}
+            placeholder="sk-ant-…"
+            onChange={(e) =>
+              update({ anthropicApiKey: e.target.value || null })
+            }
+            style={{ width: "100%", fontFamily: "monospace" }}
+          />
+          <span style={{ fontSize: 12, color: "var(--text-dim)" }}>
+            Used only for AI resume tailoring. Stored locally in the app database.
+          </span>
+        </label>
       </section>
 
       <section className={page.card}>
