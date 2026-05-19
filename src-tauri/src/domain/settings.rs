@@ -155,7 +155,6 @@ impl Default for AppSettings {
             linkedin_discovery_enabled: true,
             board_slugs: BoardSlugs::default(),
             anthropic_api_key: None,
-            anthropic_api_key: None,
         }
     }
 }
