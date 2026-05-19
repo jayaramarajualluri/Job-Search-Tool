@@ -70,6 +70,18 @@ export default function JobDetail() {
     },
   });
 
+  const tailorAi = useMutation({
+    mutationFn: () => ipc.tailorResumeForJobAi(jobId),
+    onSuccess: (path) => alert(`AI-tailored resume written to:\n${path}`),
+    onError: (err) => alert(`AI tailor failed: ${(err as Error).message}`),
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ["job", jobId] });
+      qc.invalidateQueries({ queryKey: ["resumes", jobId] });
+    },
+  });
+
+  const hasAiKey = !!(settings.data?.anthropicApiKey);
+
   if (job.isLoading) {
     return (
       <div>
@@ -145,10 +157,19 @@ export default function JobDetail() {
           </button>
         ) : (
           <button
-            disabled={tailor.isPending || !j.roleFolderPath}
+            disabled={tailor.isPending || tailorAi.isPending || !j.roleFolderPath}
             onClick={() => tailor.mutate()}
           >
             {tailor.isPending ? "Tailoring…" : "Tailor resume"}
+          </button>
+        )}
+        {hasAiKey && (
+          <button
+            disabled={tailorAi.isPending || tailor.isPending || !j.roleFolderPath}
+            onClick={() => tailorAi.mutate()}
+            title="AI-powered tailoring via Claude"
+          >
+            {tailorAi.isPending ? "AI tailoring…" : "AI Tailor (Claude)"}
           </button>
         )}
         <select

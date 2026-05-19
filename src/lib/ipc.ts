@@ -196,6 +196,10 @@ export async function tailorResumeForJob(jobId: number): Promise<string> {
   return invoke<string>("tailor_resume_for_job", { jobId });
 }
 
+export async function tailorResumeForJobAi(jobId: number): Promise<string> {
+  return invoke<string>("tailor_resume_for_job_ai", { jobId });
+}
+
 // Files / URLs ---------------------------------------------------------------
 
 export async function openPath(path: string): Promise<void> {

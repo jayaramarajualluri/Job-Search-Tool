@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as ipc from "@/lib/ipc";
-import type { Job, JobStatus, RecencyBucket, WorkMode } from "@/lib/types";
+import type { AppSettings, Job, JobStatus, RecencyBucket, WorkMode } from "@/lib/types";
 import {
   LocationBadge,
   RecencyBadge,
@@ -89,6 +89,12 @@ export default function Dashboard() {
     for (const c of companies.data ?? []) m.set(c.id, c.name);
     return (id: number) => m.get(id) ?? `#${id}`;
   }, [companies.data]);
+
+  const settings = useQuery<AppSettings>({
+    queryKey: ["settings"],
+    queryFn: () => ipc.loadSettings(),
+  });
+  const hasAiKey = !!(settings.data?.anthropicApiKey);
 
   function exportCsv() {
     const visibleJobs: Job[] = [];
@@ -345,6 +351,7 @@ export default function Dashboard() {
             companyName={companyName}
             onSelectJob={setPanelJobId}
             focusedJobId={flatJobs[focusedIdx]?.id ?? -1}
+            hasAiKey={hasAiKey}
           />
         );
       })}
@@ -355,6 +362,7 @@ export default function Dashboard() {
           companyName={companyName}
           onSelectJob={setPanelJobId}
           focusedJobId={flatJobs[focusedIdx]?.id ?? -1}
+          hasAiKey={hasAiKey}
         />
       ) : null}
 
@@ -369,12 +377,14 @@ function BucketGroup({
   companyName,
   onSelectJob,
   focusedJobId,
+  hasAiKey,
 }: {
   label: string;
   jobs: Job[];
   companyName: (id: number) => string;
   onSelectJob: (id: number) => void;
   focusedJobId: number;
+  hasAiKey: boolean;
 }) {
   return (
     <section className={styles.bucket}>
@@ -399,6 +409,7 @@ function BucketGroup({
             companyName={companyName}
             onSelect={onSelectJob}
             focused={j.id === focusedJobId}
+            hasAiKey={hasAiKey}
           />
         ))}
       </div>
@@ -411,11 +422,13 @@ function JobRow({
   companyName,
   onSelect,
   focused,
+  hasAiKey,
 }: {
   job: Job;
   companyName: (id: number) => string;
   onSelect: (id: number) => void;
   focused: boolean;
+  hasAiKey: boolean;
 }) {
   const rowRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -434,6 +447,16 @@ function JobRow({
     },
     onError: (err) => {
       alert(`Tailor failed: ${(err as Error).message}`);
+    },
+  });
+  const tailorAi = useMutation({
+    mutationFn: () => ipc.tailorResumeForJobAi(job.id),
+    onSuccess: (path) => {
+      alert(`AI-tailored resume written to:\n${path}`);
+      qc.invalidateQueries({ queryKey: ["jobs"] });
+    },
+    onError: (err) => {
+      alert(`AI tailor failed: ${(err as Error).message}`);
     },
   });
 
@@ -488,8 +511,17 @@ function JobRow({
             Resume
           </button>
         ) : (
-          <button disabled={tailor.isPending} onClick={() => tailor.mutate()}>
+          <button disabled={tailor.isPending || tailorAi.isPending} onClick={() => tailor.mutate()}>
             Tailor
+          </button>
+        )}
+        {hasAiKey && (
+          <button
+            disabled={tailorAi.isPending || tailor.isPending}
+            onClick={() => tailorAi.mutate()}
+            title="AI-powered tailoring via Claude"
+          >
+            {tailorAi.isPending ? "AI…" : "AI Tailor"}
           </button>
         )}
         <select
