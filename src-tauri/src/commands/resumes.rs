@@ -139,8 +139,12 @@ pub fn tailor_resume_for_job(
     let out_path = PathBuf::from(role_folder).join("tailored_resume.html");
     renderer::render_html_to(&tailored, &out_path)?;
 
-    // Bind owned strings so their references outlive the query calls below.
-    let out_path_str = out_path.to_string_lossy().into_owned();
+    // Try to produce a PDF; fall back to the HTML path if Chrome isn't available.
+    let final_path = match renderer::html_to_pdf(&out_path) {
+        Ok(pdf) => pdf,
+        Err(_) => out_path.clone(),
+    };
+    let out_path_str = final_path.to_string_lossy().into_owned();
     let source_profile_path = settings.resume_source_inputs.canonical_profile_path.clone();
     let jd_file_path = job.jd_file_path.clone().unwrap_or_default();
     let cover_letter_path = job.cover_letter_file_path.clone();
@@ -222,7 +226,11 @@ pub async fn tailor_resume_for_job_ai(
     );
 
     // ── 3. call Anthropic API ────────────────────────────────────────────────
-    let client = reqwest::Client::new();
+    // Use a dedicated client with a long timeout — the AI call takes 30-60s.
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(120))
+        .build()
+        .map_err(|e| AppError::Other(e.to_string()))?;
     let body = serde_json::json!({
         "model": "claude-sonnet-4-6",
         "max_tokens": 4096,
@@ -269,7 +277,12 @@ pub async fn tailor_resume_for_job_ai(
 
     renderer::render_html_to(&tailored, &out_path)?;
 
-    let out_path_str = out_path.to_string_lossy().into_owned();
+    // Try to produce a PDF; fall back to the HTML path if Chrome isn't available.
+    let final_path = match renderer::html_to_pdf(&out_path) {
+        Ok(pdf) => pdf,
+        Err(_) => out_path.clone(),
+    };
+    let out_path_str = final_path.to_string_lossy().into_owned();
 
     // ── 5. persist resume row + update job.resume_file_path ─────────────────
     {

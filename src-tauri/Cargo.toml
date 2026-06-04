@@ -11,6 +11,10 @@ license = "MIT"
 name = "job_search_tool_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
+[[bin]]
+name = "job-search-server"
+path = "src/bin/server.rs"
+
 [build-dependencies]
 tauri-build = { version = "2.0", features = [] }
 
@@ -42,6 +46,11 @@ serde_json = "1"
 
 # Dates
 chrono = { version = "0.4", features = ["serde"] }
+
+# Web server
+axum = { version = "0.7", features = ["json", "query", "multipart"] }
+tower-http = { version = "0.5", features = ["cors", "fs"] }
+tower = "0.4"
 
 # Errors + logging
 thiserror = "2"

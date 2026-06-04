@@ -39,6 +39,8 @@ pub async fn run(db: &Database, settings: &AppSettings, sources: &[Source]) -> A
     let mut total_filtered = 0u32;
     let mut total_prepared = 0u32;
 
+    let cap = settings.max_jobs_to_prepare_per_run as usize;
+
     for src in sources {
         let name = src.name().to_string();
         let entry = summary.entry(name.clone()).or_insert_with(SourceOutcome::default);
@@ -48,7 +50,8 @@ pub async fn run(db: &Database, settings: &AppSettings, sources: &[Source]) -> A
                 entry.fetched = list.len() as u32;
                 total_fetched += entry.fetched;
                 for ingest in list {
-                    match persist_one(db, settings, ingest, false).await {
+                    let already_at_cap = total_prepared as usize >= cap;
+                    match persist_one(db, settings, ingest, false, already_at_cap).await {
                         Ok(PersistOutcome::Prepared(_)) => {
                             entry.prepared += 1;
                             total_prepared += 1;
@@ -94,7 +97,7 @@ pub async fn ingest_one(
     settings: &AppSettings,
     ingest: JobIngest,
 ) -> AppResult<i64> {
-    match persist_one(db, settings, ingest, true).await? {
+    match persist_one(db, settings, ingest, true, false).await? {
         PersistOutcome::Prepared(id) => Ok(id),
         PersistOutcome::FilteredOut => Ok(-1),
     }
@@ -110,6 +113,7 @@ async fn persist_one(
     settings: &AppSettings,
     mut ingest: JobIngest,
     force_prepare: bool,
+    skip_new_file_trees: bool,
 ) -> AppResult<PersistOutcome> {
     // Detect work mode (if the source didn't already).
     if matches!(ingest.work_mode, WorkMode::Unknown) {
@@ -194,15 +198,19 @@ async fn persist_one(
         repo::jobs::update_match(&c, job_id, score, &explanation)?;
     }
 
-    // File tree (only if score meets threshold or posted today/yesterday —
-    // we always give today's jobs a folder so the user can triage fast).
-    let should_prepare = force_prepare
-        || score >= settings.min_match_score
-        || matches!(
-            bucket,
-            Some(crate::domain::job::RecencyBucket::Today)
-                | Some(crate::domain::job::RecencyBucket::Yesterday)
-        );
+    // File tree: skip if job already has a folder (avoid re-creating on repeat runs),
+    // or if we've hit the per-run cap and this isn't a forced single-job import.
+    let already_has_folder = job.role_folder_path.is_some();
+    let should_prepare = !already_has_folder
+        && !skip_new_file_trees
+        && (force_prepare
+            || score >= settings.min_match_score
+            || matches!(
+                bucket,
+                Some(crate::domain::job::RecencyBucket::Today)
+                    | Some(crate::domain::job::RecencyBucket::Yesterday)
+            ));
+
     if should_prepare {
         let root = PathBuf::from(&settings.root_folder);
         let paths = files::folder::build_job_tree(
@@ -223,7 +231,6 @@ async fn persist_one(
         // Persist company folder if first seen.
         if let Some(company) = repo::companies::get(&c, job.company_id)? {
             if company.company_folder_path.is_none() {
-                // Derive the per-company folder (one level above role).
                 if let Some(parent) = std::path::Path::new(&paths.role_folder).parent() {
                     let parent_str = parent.to_string_lossy().into_owned();
                     repo::companies::set_folder_path(&c, company.id, &parent_str)?;
@@ -237,9 +244,9 @@ async fn persist_one(
 
 fn summarize(jd: Option<&str>) -> Option<String> {
     let text = jd?;
-    // First non-empty ~2 sentences, capped to 400 chars.
+    let stripped = strip_html(text);
     let mut out = String::new();
-    for line in text.lines() {
+    for line in stripped.lines() {
         let l = line.trim();
         if l.is_empty() {
             continue;
@@ -257,6 +264,37 @@ fn summarize(jd: Option<&str>) -> Option<String> {
     } else {
         Some(out.chars().take(400).collect::<String>())
     }
+}
+
+fn strip_html(html: &str) -> String {
+    let mut out = String::with_capacity(html.len());
+    let mut in_tag = false;
+    for ch in html.chars() {
+        match ch {
+            '<' => in_tag = true,
+            '>' => {
+                in_tag = false;
+                out.push(' ');
+            }
+            _ if !in_tag => out.push(ch),
+            _ => {}
+        }
+    }
+    // Collapse runs of whitespace
+    let mut result = String::with_capacity(out.len());
+    let mut prev_space = false;
+    for ch in out.chars() {
+        if ch.is_whitespace() {
+            if !prev_space {
+                result.push(' ');
+            }
+            prev_space = true;
+        } else {
+            result.push(ch);
+            prev_space = false;
+        }
+    }
+    result.trim().to_string()
 }
 
 fn truncate_err(s: &str) -> String {

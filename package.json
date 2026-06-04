@@ -8,7 +8,11 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "tauri": "tauri",
-    "typecheck": "tsc -b --noEmit"
+    "typecheck": "tsc -b --noEmit",
+    "dev:web": "vite --port 1420",
+    "build:web": "tsc -b && vite build",
+    "server:build": "cd src-tauri && cargo build --release --bin job-search-server",
+    "server:dev": "cd src-tauri && cargo run --bin job-search-server"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.59.0",

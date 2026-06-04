@@ -1,7 +1,7 @@
-// Typed wrappers over Tauri `invoke`.  One helper per command.  Keep this
-// file pure — no UI, no runtime logic beyond calling invoke().
+// REST API wrappers — one function per backend endpoint.
+// In dev, Vite proxies /api → http://localhost:3000/api.
+// In production, the Axum server serves both API and the built React app.
 
-import { invoke } from "@tauri-apps/api/core";
 import type {
   Account,
   AccountInput,
@@ -15,8 +15,27 @@ import type {
   Resume,
 } from "./types";
 
+const BASE = "/api";
+
+async function apiFetch<T>(method: string, path: string, body?: unknown): Promise<T> {
+  const res = await fetch(`${BASE}${path}`, {
+    method,
+    headers: body !== undefined ? { "Content-Type": "application/json" } : {},
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  });
+  if (!res.ok) throw new Error(await res.text());
+  if (res.status === 204) return undefined as T;
+  return res.json();
+}
+
+const apiGet  = <T>(path: string)              => apiFetch<T>("GET",    path);
+const apiPost = <T>(path: string, b?: unknown) => apiFetch<T>("POST",   path, b);
+const apiPut  = <T>(path: string, b: unknown)  => apiFetch<T>("PUT",    path, b);
+const apiPatch= <T>(path: string, b: unknown)  => apiFetch<T>("PATCH",  path, b);
+const apiDel  =    (path: string)              => apiFetch<void>("DELETE", path);
+
 export async function ping(): Promise<string> {
-  return invoke<string>("ping");
+  return apiGet("/ping");
 }
 
 // Jobs -----------------------------------------------------------------------
@@ -30,17 +49,18 @@ export interface JobFilter {
 }
 
 export async function listJobs(f: JobFilter = {}): Promise<Job[]> {
-  return invoke<Job[]>("list_jobs", {
-    minScore: f.minScore ?? null,
-    status: f.status ?? null,
-    recency: f.recency ?? null,
-    companyId: f.companyId ?? null,
-    includeExplicitNoSponsorship: f.includeExplicitNoSponsorship ?? null,
-  });
+  const p = new URLSearchParams();
+  if (f.minScore != null) p.set("minScore", String(f.minScore));
+  if (f.status) p.set("status", f.status);
+  if (f.companyId != null) p.set("companyId", String(f.companyId));
+  if (f.includeExplicitNoSponsorship != null)
+    p.set("includeExplicitNoSponsorship", String(f.includeExplicitNoSponsorship));
+  const qs = p.toString();
+  return apiGet(`/jobs${qs ? `?${qs}` : ""}`);
 }
 
 export async function getJob(id: number): Promise<Job | null> {
-  return invoke<Job | null>("get_job", { id });
+  return apiGet(`/jobs/${id}`);
 }
 
 export async function updateJobStatus(
@@ -48,30 +68,28 @@ export async function updateJobStatus(
   status: JobStatus,
   notes?: string,
 ): Promise<void> {
-  return invoke("update_job_status", { id, status, notes: notes ?? null });
+  return apiPatch(`/jobs/${id}/status`, { status, notes: notes ?? null });
 }
 
 // Companies ------------------------------------------------------------------
 
 export async function listCompanies(): Promise<Company[]> {
-  return invoke<Company[]>("list_companies");
+  return apiGet("/companies");
 }
 
-export async function updateCompanyNotes(
-  id: number,
-  notes: string | null,
-): Promise<void> {
-  return invoke("update_company_notes", { id, notes });
+export async function updateCompanyNotes(id: number, notes: string | null): Promise<void> {
+  return apiPatch(`/companies/${id}/notes`, { notes });
 }
 
 // Accounts -------------------------------------------------------------------
 
 export async function listAccounts(companyId?: number): Promise<Account[]> {
-  return invoke<Account[]>("list_accounts", { companyId: companyId ?? null });
+  const qs = companyId != null ? `?companyId=${companyId}` : "";
+  return apiGet(`/accounts${qs}`);
 }
 
 export async function createAccount(input: AccountInput): Promise<Account> {
-  return invoke<Account>("create_account", { input });
+  return apiPost("/accounts", input);
 }
 
 export async function updateAccount(
@@ -81,43 +99,37 @@ export async function updateAccount(
   requires2fa: boolean,
   notes: string | null,
 ): Promise<void> {
-  return invoke("update_account", {
-    id,
-    loginUrl,
-    username,
-    requires2fa,
-    notes,
-  });
+  return apiPut(`/accounts/${id}`, { loginUrl, username, requires2fa, notes });
 }
 
 export async function saveAccountPassword(id: number, password: string): Promise<void> {
-  return invoke("save_account_password", { id, password });
+  return apiPost(`/accounts/${id}/password`, { password });
 }
 
 export async function clearAccountPassword(id: number): Promise<void> {
-  return invoke("clear_account_password", { id });
+  return apiDel(`/accounts/${id}/password`);
 }
 
 export async function revealAccountPassword(id: number): Promise<string | null> {
-  return invoke<string | null>("reveal_account_password", { id });
+  return apiGet(`/accounts/${id}/password`);
 }
 
 export async function markAccountUsed(id: number): Promise<void> {
-  return invoke("mark_account_used", { id });
+  return apiPost(`/accounts/${id}/used`);
 }
 
 export async function deleteAccount(id: number): Promise<void> {
-  return invoke("delete_account", { id });
+  return apiDel(`/accounts/${id}`);
 }
 
 // Settings -------------------------------------------------------------------
 
 export async function loadSettings(): Promise<AppSettings> {
-  return invoke<AppSettings>("load_settings");
+  return apiGet("/settings");
 }
 
 export async function saveSettings(settings: AppSettings): Promise<void> {
-  return invoke("save_settings", { settings });
+  return apiPut("/settings", settings);
 }
 
 // Ingestion ------------------------------------------------------------------
@@ -135,7 +147,7 @@ export interface IngestionOutcome {
 }
 
 export async function runIngestion(sources: SourceSpec[]): Promise<IngestionOutcome> {
-  return invoke<IngestionOutcome>("run_ingestion", { sources });
+  return apiPost("/ingestion/run", sources);
 }
 
 export async function importUrl(
@@ -144,12 +156,7 @@ export async function importUrl(
   roleTitle: string,
   jdText: string | null,
 ): Promise<number> {
-  return invoke<number>("import_url", {
-    url,
-    companyName,
-    roleTitle,
-    jdText,
-  });
+  return apiPost("/ingestion/import-url", { url, companyName, roleTitle, jdText });
 }
 
 export async function importText(
@@ -157,7 +164,7 @@ export async function importText(
   roleTitle: string,
   jdText: string,
 ): Promise<number> {
-  return invoke<number>("import_text", { companyName, roleTitle, jdText });
+  return apiPost("/ingestion/import-text", { companyName, roleTitle, jdText });
 }
 
 export interface LinkedinResolution {
@@ -169,43 +176,41 @@ export interface LinkedinResolution {
 }
 
 export async function resolveLinkedinUrl(url: string): Promise<LinkedinResolution> {
-  return invoke<LinkedinResolution>("resolve_linkedin_url", { url });
+  return apiPost("/ingestion/resolve-linkedin", { url });
 }
 
 export async function listRuns(): Promise<IngestionRun[]> {
-  return invoke<IngestionRun[]>("list_runs");
+  return apiGet("/ingestion/runs");
 }
 
 // Resumes --------------------------------------------------------------------
 
 export async function loadCanonicalProfile(): Promise<CanonicalProfile | null> {
-  return invoke<CanonicalProfile | null>("load_canonical_profile");
+  return apiGet("/resumes/canonical-profile");
 }
 
-export async function saveCanonicalProfile(
-  profile: CanonicalProfile,
-): Promise<string> {
-  return invoke<string>("save_canonical_profile", { profile });
+export async function saveCanonicalProfile(profile: CanonicalProfile): Promise<string> {
+  return apiPost("/resumes/canonical-profile", profile);
 }
 
 export async function listResumesForJob(jobId: number): Promise<Resume[]> {
-  return invoke<Resume[]>("list_resumes_for_job", { jobId });
+  return apiGet(`/resumes/for-job/${jobId}`);
 }
 
 export async function tailorResumeForJob(jobId: number): Promise<string> {
-  return invoke<string>("tailor_resume_for_job", { jobId });
+  return apiPost(`/resumes/tailor/${jobId}`);
 }
 
 export async function tailorResumeForJobAi(jobId: number): Promise<string> {
-  return invoke<string>("tailor_resume_for_job_ai", { jobId });
+  return apiPost(`/resumes/tailor-ai/${jobId}`);
 }
 
 // Files / URLs ---------------------------------------------------------------
 
 export async function openPath(path: string): Promise<void> {
-  return invoke("open_path", { path });
+  window.open(`${BASE}/files/serve?path=${encodeURIComponent(path)}`, "_blank");
 }
 
 export async function openUrl(url: string): Promise<void> {
-  return invoke("open_url", { url });
+  window.open(url, "_blank", "noopener,noreferrer");
 }

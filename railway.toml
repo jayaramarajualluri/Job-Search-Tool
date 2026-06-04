@@ -1,0 +1,12 @@
+[build]
+builder = "dockerfile"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+startCommand = "./job-search-server"
+healthcheckPath = "/api/ping"
+healthcheckTimeout = 30
+restartPolicyType = "on_failure"
+
+[[volumes]]
+mountPath = "/data"

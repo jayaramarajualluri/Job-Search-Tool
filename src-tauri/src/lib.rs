@@ -24,6 +24,7 @@ pub mod resume;
 pub mod secrets;
 
 pub mod commands;
+pub mod http_server;
 
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 use tauri::Manager;
